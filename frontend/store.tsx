@@ -1,40 +1,17 @@
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { User, BlogPost, Project } from './types';
+import * as authApi from './api/auth';
+import * as blogApi from './api/blog';
+import * as projectApi from './api/project';
 
-// Initial Mock Data for Blogs
-const INITIAL_BLOGS: BlogPost[] = Array.from({ length: 6 }).map((_, index) => {
-  const id = index + 1;
-  return {
-    id: id.toString(),
-    title: `技术探索 No.${id}：Web前端性能优化实战指南`,
-    excerpt: '深入探讨现代浏览器的渲染机制，以及如何利用最新的 Web API 提升应用性能。包含大量实战案例与代码演示。',
-    content: `<p>这里是文章内容详情...</p>`,
-    date: '2023-10-24',
-    views: Math.floor(Math.random() * 2000) + 100,
-    comments: Math.floor(Math.random() * 50),
-    tags: ['Frontend', 'Performance', 'React'],
-    cover: `https://picsum.photos/seed/blog${id}/800/450`,
-    status: 'published'
-  };
-});
-
-// Initial Mock Data for Projects
-const INITIAL_PROJECTS: Project[] = Array.from({ length: 6 }).map((_, i) => {
-  const id = i + 1;
-  return {
-    id: id.toString(),
-    title: `Creative Project ${id}`,
-    description: '基于 React + Tailwind 的高性能应用，支持 WebGL 3D 渲染与实时交互。',
-    image: `https://picsum.photos/seed/project${id}/800/600`,
-    techStack: ['React', 'WebGL', 'Node.js'],
-    link: '#'
-  };
-});
+// 初始空数据，将从后端加载
+const INITIAL_BLOGS: BlogPost[] = [];
+const INITIAL_PROJECTS: Project[] = [];
 
 interface AppContextType {
   user: User | null;
-  login: (provider: 'wechat' | 'github' | 'admin') => void;
+  login: (provider: 'wechat' | 'github' | 'admin', credentials?: { username: string; password: string }) => Promise<void>;
   logout: () => void;
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
@@ -53,54 +30,181 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    // 从 localStorage 恢复用户信息
+    return authApi.getCurrentUser();
+  });
   const [isAuthModalOpen, setAuthModalOpen] = useState(false);
   const [blogs, setBlogs] = useState<BlogPost[]>(INITIAL_BLOGS);
   const [projects, setProjects] = useState<Project[]>(INITIAL_PROJECTS);
 
-  const login = (provider: 'wechat' | 'github' | 'admin') => {
-    if (provider === 'admin') {
-      setUser({
-        id: 'admin-1',
-        name: '站长本人',
-        avatar: 'https://picsum.photos/id/64/100/100',
-        role: 'admin',
-      });
-    } else {
-      setUser({
-        id: `user-${Math.random().toString(36).substr(2, 9)}`,
-        name: provider === 'wechat' ? '微信用户' : 'GitHub User',
-        avatar: `https://picsum.photos/seed/${Math.random()}/100/100`,
-        role: 'user',
-        provider,
-      });
+  // 初始化时加载数据
+  useEffect(() => {
+    loadBlogs();
+    loadProjects();
+  }, []);
+
+  // 加载博客列表
+  const loadBlogs = async () => {
+    try {
+      const response = await blogApi.getBlogList({ page: 1, size: 100 });
+      // 映射后端数据，处理日期字段
+      const mappedBlogs = response.list.map(blog => ({
+        ...blog,
+        date: blog.createdAt ? blog.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+        id: String(blog.id),
+      }));
+      setBlogs(mappedBlogs);
+    } catch (error) {
+      console.error('加载博客列表失败:', error);
     }
   };
 
-  const logout = () => setUser(null);
+  // 加载项目列表
+  const loadProjects = async () => {
+    try {
+      const projectList = await projectApi.getProjectList();
+      // 映射ID为字符串
+      const mappedProjects = projectList.map(project => ({
+        ...project,
+        id: String(project.id),
+      }));
+      setProjects(mappedProjects);
+    } catch (error) {
+      console.error('加载项目列表失败:', error);
+    }
+  };
+
+  const login = async (provider: 'wechat' | 'github' | 'admin', credentials?: { username: string; password: string }) => {
+    try {
+      let response;
+      if (provider === 'admin') {
+        // 管理员登录
+        if (!credentials) {
+          throw new Error('管理员登录需要提供账号密码');
+        }
+        response = await authApi.login({
+          username: credentials.username,
+          password: credentials.password,
+        });
+      } else if (provider === 'wechat') {
+        // 微信登录 - 模拟微信授权流程
+        console.log('正在跳转到微信授权页面...');
+        // TODO: 实际应该打开微信授权窗口，这里使用模拟数据
+        alert('微信登录功能开发中...\n\n提示：实际项目中需要：\n1. 跳转到微信授权页面\n2. 用户扫码授权\n3. 获取授权码\n4. 后端换取用户信息\n\n目前使用模拟登录');
+        setUser({
+          id: `wx-${Math.random().toString(36).substr(2, 9)}`,
+          name: '微信用户',
+          avatar: `https://picsum.photos/seed/wx${Math.random()}/100/100`,
+          role: 'user',
+          provider: 'wechat',
+        });
+        return;
+      } else if (provider === 'github') {
+        // GitHub登录 - 模拟OAuth流程
+        console.log('正在跳转到GitHub授权页面...');
+        alert('GitHub登录功能开发中...\n\n提示：实际项目中需要：\n1. 跳转到GitHub OAuth授权页面\n2. 用户授权\n3. 获取授权码\n4. 后端换取用户信息\n\n目前使用模拟登录');
+        setUser({
+          id: `gh-${Math.random().toString(36).substr(2, 9)}`,
+          name: 'GitHub User',
+          avatar: `https://picsum.photos/seed/gh${Math.random()}/100/100`,
+          role: 'user',
+          provider: 'github',
+        });
+        return;
+      }
+      
+      // 保存登录信息
+      authApi.saveLoginInfo(response);
+      // 映射后端用户数据到前端格式
+      setUser({
+        id: response.user.id,
+        name: response.user.nickname || response.user.username,
+        username: response.user.username,
+        nickname: response.user.nickname,
+        avatar: response.user.avatar,
+        role: response.user.role as 'admin' | 'user' | 'guest',
+        provider: response.user.provider as 'wechat' | 'github' | undefined,
+      });
+    } catch (error: any) {
+      console.error('登录失败:', error);
+      const errorMessage = error?.message || '登录失败，请重试';
+      alert(errorMessage);
+      throw error;
+    }
+  };
+
+  const logout = () => {
+    authApi.logout();
+    setUser(null);
+  };
   const openAuthModal = () => setAuthModalOpen(true);
   const closeAuthModal = () => setAuthModalOpen(false);
 
-  const addBlog = (post: BlogPost) => {
-    setBlogs(prev => [post, ...prev]);
+  const addBlog = async (post: BlogPost) => {
+    try {
+      const newBlog = await blogApi.createBlog({
+        title: post.title,
+        excerpt: post.excerpt,
+        content: post.content,
+        cover: post.cover,
+        tags: post.tags,
+        status: post.status as 'published' | 'hidden' | 'draft',
+        contentImages: post.contentImages,
+      });
+      setBlogs(prev => [newBlog, ...prev]);
+    } catch (error) {
+      console.error('创建博客失败:', error);
+      throw error;
+    }
   };
 
-  const deleteBlog = (id: string) => {
-    setBlogs(prev => prev.filter(b => b.id !== id));
+  const deleteBlog = async (id: string) => {
+    try {
+      await blogApi.deleteBlog(id);
+      setBlogs(prev => prev.filter(b => b.id !== id));
+    } catch (error) {
+      console.error('删除博客失败:', error);
+      throw error;
+    }
   };
 
-  const toggleBlogStatus = (id: string) => {
-    setBlogs(prev => prev.map(b => 
-      b.id === id ? { ...b, status: b.status === 'published' ? 'hidden' : 'published' } : b
-    ));
+  const toggleBlogStatus = async (id: string) => {
+    try {
+      await blogApi.toggleBlogStatus(id);
+      setBlogs(prev => prev.map(b => 
+        b.id === id ? { ...b, status: b.status === 'published' ? 'hidden' : 'published' } : b
+      ));
+    } catch (error) {
+      console.error('切换博客状态失败:', error);
+      throw error;
+    }
   };
 
-  const addProject = (project: Project) => {
-    setProjects(prev => [project, ...prev]);
+  const addProject = async (project: Project) => {
+    try {
+      const newProject = await projectApi.createProject({
+        title: project.title,
+        description: project.description,
+        image: project.image,
+        link: project.link,
+        techStack: project.techStack,
+      });
+      setProjects(prev => [newProject, ...prev]);
+    } catch (error) {
+      console.error('创建项目失败:', error);
+      throw error;
+    }
   };
 
-  const deleteProject = (id: string) => {
-    setProjects(prev => prev.filter(p => p.id !== id));
+  const deleteProject = async (id: string) => {
+    try {
+      await projectApi.deleteProject(id);
+      setProjects(prev => prev.filter(p => p.id !== id));
+    } catch (error) {
+      console.error('删除项目失败:', error);
+      throw error;
+    }
   };
 
   return (
