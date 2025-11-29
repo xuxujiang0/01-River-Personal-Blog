@@ -11,8 +11,9 @@ const INITIAL_PROJECTS: Project[] = [];
 
 interface AppContextType {
   user: User | null;
-  login: (provider: 'wechat' | 'github' | 'admin', credentials?: { username: string; password: string }) => Promise<void>;
+  login: (credentials: { username: string; password: string }) => Promise<void>;
   logout: () => void;
+  updateAvatar: (avatarUrl: string) => void;
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
   closeAuthModal: () => void;
@@ -21,6 +22,7 @@ interface AppContextType {
   addBlog: (post: BlogPost) => void;
   deleteBlog: (id: string) => void;
   toggleBlogStatus: (id: string) => void;
+  loadBlogs: () => Promise<void>;
   // Project related
   projects: Project[];
   addProject: (project: Project) => void;
@@ -32,7 +34,19 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(() => {
     // 从 localStorage 恢复用户信息
-    return authApi.getCurrentUser();
+    const currentUser = authApi.getCurrentUser();
+    if (currentUser) {
+      // 确保用户对象包含所有必需的字段
+      return {
+        id: currentUser.id,
+        name: currentUser.nickname || currentUser.username || currentUser.name,
+        username: currentUser.username,
+        nickname: currentUser.nickname,
+        avatar: currentUser.avatar,
+        role: currentUser.role,
+      };
+    }
+    return null;
   });
   const [isAuthModalOpen, setAuthModalOpen] = useState(false);
   const [blogs, setBlogs] = useState<BlogPost[]>(INITIAL_BLOGS);
@@ -75,44 +89,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const login = async (provider: 'wechat' | 'github' | 'admin', credentials?: { username: string; password: string }) => {
+  const login = async (credentials: { username: string; password: string }) => {
     try {
-      let response;
-      if (provider === 'admin') {
-        // 管理员登录
-        if (!credentials) {
-          throw new Error('管理员登录需要提供账号密码');
-        }
-        response = await authApi.login({
-          username: credentials.username,
-          password: credentials.password,
-        });
-      } else if (provider === 'wechat') {
-        // 微信登录 - 模拟微信授权流程
-        console.log('正在跳转到微信授权页面...');
-        // TODO: 实际应该打开微信授权窗口，这里使用模拟数据
-        alert('微信登录功能开发中...\n\n提示：实际项目中需要：\n1. 跳转到微信授权页面\n2. 用户扫码授权\n3. 获取授权码\n4. 后端换取用户信息\n\n目前使用模拟登录');
-        setUser({
-          id: `wx-${Math.random().toString(36).substr(2, 9)}`,
-          name: '微信用户',
-          avatar: `https://picsum.photos/seed/wx${Math.random()}/100/100`,
-          role: 'user',
-          provider: 'wechat',
-        });
-        return;
-      } else if (provider === 'github') {
-        // GitHub登录 - 模拟OAuth流程
-        console.log('正在跳转到GitHub授权页面...');
-        alert('GitHub登录功能开发中...\n\n提示：实际项目中需要：\n1. 跳转到GitHub OAuth授权页面\n2. 用户授权\n3. 获取授权码\n4. 后端换取用户信息\n\n目前使用模拟登录');
-        setUser({
-          id: `gh-${Math.random().toString(36).substr(2, 9)}`,
-          name: 'GitHub User',
-          avatar: `https://picsum.photos/seed/gh${Math.random()}/100/100`,
-          role: 'user',
-          provider: 'github',
-        });
-        return;
+      // 管理员登录
+      if (!credentials) {
+        throw new Error('登录需要提供账号密码');
       }
+      const response = await authApi.login({
+        username: credentials.username,
+        password: credentials.password,
+      });
       
       // 保存登录信息
       authApi.saveLoginInfo(response);
@@ -124,12 +110,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         nickname: response.user.nickname,
         avatar: response.user.avatar,
         role: response.user.role as 'admin' | 'user' | 'guest',
-        provider: response.user.provider as 'wechat' | 'github' | undefined,
       });
     } catch (error: any) {
       console.error('登录失败:', error);
       const errorMessage = error?.message || '登录失败，请重试';
-      alert(errorMessage);
+      window.toast?.error(errorMessage);
       throw error;
     }
   };
@@ -138,25 +123,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     authApi.logout();
     setUser(null);
   };
+  
+  const updateAvatar = (avatarUrl: string) => {
+    if (user) {
+      setUser({ ...user, avatar: avatarUrl });
+    }
+  };
+  
   const openAuthModal = () => setAuthModalOpen(true);
   const closeAuthModal = () => setAuthModalOpen(false);
 
-  const addBlog = async (post: BlogPost) => {
-    try {
-      const newBlog = await blogApi.createBlog({
-        title: post.title,
-        excerpt: post.excerpt,
-        content: post.content,
-        cover: post.cover,
-        tags: post.tags,
-        status: post.status as 'published' | 'hidden' | 'draft',
-        contentImages: post.contentImages,
-      });
-      setBlogs(prev => [newBlog, ...prev]);
-    } catch (error) {
-      console.error('创建博客失败:', error);
-      throw error;
-    }
+  const addBlog = (post: BlogPost) => {
+    // 直接添加到状态，不再调用API（因为调用方已经创建了博客）
+    setBlogs(prev => [post, ...prev]);
   };
 
   const deleteBlog = async (id: string) => {
@@ -209,8 +188,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   return (
     <AppContext.Provider value={{ 
-      user, login, logout, isAuthModalOpen, openAuthModal, closeAuthModal, 
-      blogs, addBlog, deleteBlog, toggleBlogStatus,
+      user, login, logout, updateAvatar, isAuthModalOpen, openAuthModal, closeAuthModal, 
+      blogs, addBlog, deleteBlog, toggleBlogStatus, loadBlogs,
       projects, addProject, deleteProject
     }}>
       {children}

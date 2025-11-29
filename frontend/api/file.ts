@@ -38,7 +38,10 @@ export const uploadFile = async (file: File): Promise<FileUploadResponse> => {
 /**
  * 获取文件完整URL
  */
-export const getFileUrl = (path: string): string => {
+export const getFileUrl = (path: string | undefined | null): string => {
+  if (!path) {
+    return ''; // 返回空字符串，避免显示错误
+  }
   if (path.startsWith('http')) {
     return path;
   }

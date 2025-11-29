@@ -55,4 +55,24 @@ public interface BlogPostMapper {
      * 更新状态
      */
     int updateStatus(@Param("id") Long id, @Param("status") String status);
+    
+    /**
+     * 更新评论数
+     */
+    int updateCommentCount(@Param("id") Long id, @Param("comments") int comments);
+    
+    /**
+     * 查询博客的内容图片
+     */
+    List<String> selectContentImages(@Param("postId") Long postId);
+    
+    /**
+     * 插入内容图片
+     */
+    int insertContentImage(@Param("postId") Long postId, @Param("imageUrl") String imageUrl, @Param("sortOrder") int sortOrder);
+    
+    /**
+     * 删除博客的所有内容图片
+     */
+    int deleteContentImages(@Param("postId") Long postId);
 }

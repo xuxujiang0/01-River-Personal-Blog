@@ -1,6 +1,8 @@
 package com.river.blog.controller;
 
 import com.river.blog.common.Result;
+import com.river.blog.entity.User;
+import com.river.blog.mapper.UserMapper;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,9 +19,11 @@ import java.util.Map;
 public class UtilController {
     
     private final PasswordEncoder passwordEncoder;
+    private final UserMapper userMapper;
     
-    public UtilController(PasswordEncoder passwordEncoder) {
+    public UtilController(PasswordEncoder passwordEncoder, UserMapper userMapper) {
         this.passwordEncoder = passwordEncoder;
+        this.userMapper = userMapper;
     }
     
     /**

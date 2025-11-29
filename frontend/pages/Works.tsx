@@ -42,12 +42,19 @@ export const Works: React.FC = () => {
     }, 1500);
   };
 
-  const handleDelete = (id: string, e: React.MouseEvent) => {
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (window.confirm('确定要删除这个作品吗？')) {
+    
+    const confirmed = await window.toast?.confirm('确定要删除这个作品吗？', {
+      title: '删除作品',
+      confirmText: '确定删除',
+      cancelText: '取消'
+    });
+    
+    if (confirmed) {
       deleteProject(id);
-      alert('作品已删除');
+      window.toast?.success('作品已删除');
     }
   };
 

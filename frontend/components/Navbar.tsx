@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { PageRoute } from '../types';
 import { useAppStore } from '../store';
-import { Menu, X, LogIn } from 'lucide-react';
+import { Menu, X, LogIn, User as UserIcon } from 'lucide-react';
+import { getAvatarUrl } from '../utils/avatar';
+import { AvatarModal } from './AvatarModal';
 
 // Spider Animation Component
 const SpiderAnimation = () => (
@@ -60,8 +62,9 @@ const SpiderAnimation = () => (
 );
 
 export const Navbar: React.FC = () => {
-  const { user, logout, openAuthModal } = useAppStore();
+  const { user, logout, openAuthModal, updateAvatar } = useAppStore();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAvatarModalOpen, setAvatarModalOpen] = useState(false);
 
   const navItems = [
     { label: '首页', path: PageRoute.HOME },
@@ -113,15 +116,31 @@ export const Navbar: React.FC = () => {
           {/* Auth / User Section - Aligned Right */}
           <div className="flex items-center border-l border-gray-800 pl-8 h-8">
             {user ? (
-              <div className="flex items-center space-x-3 group relative cursor-pointer">
-                <div className="text-right hidden lg:block">
-                   <div className="text-gray-200 text-sm font-mono leading-none">{user.name}</div>
-                   <div className="text-[10px] text-[#39ff14] mt-1">{user.role.toUpperCase()}</div>
-                </div>
-                <img src={user.avatar} alt="avatar" className="w-9 h-9 rounded bg-gray-800 border border-gray-700 object-cover" />
-                
-                <div className="absolute top-full right-0 mt-4 w-32 bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-2 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity z-50">
-                   <button onClick={logout} className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/5">退出登录</button>
+              <div className="relative">
+                <div className="flex items-center space-x-3 group relative cursor-pointer">
+                  <div className="text-right hidden lg:block">
+                    <div className="text-gray-200 text-sm font-mono leading-none">{user.nickname || user.username || user.name}</div>
+                    <div className="text-[10px] text-[#39ff14] mt-1">
+                      {user.role === 'admin' ? '管理员' : user.role === 'user' ? '普通用户' : user.role?.toUpperCase()}
+                    </div>
+                  </div>
+                  <img src={getAvatarUrl(user)} alt="avatar" className="w-9 h-9 rounded bg-gray-800 border border-gray-700 object-cover" />
+                  
+                  <div className="absolute top-full right-0 mt-2 w-40 bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-2 opacity-0 group-hover:opacity-100 transition-all duration-200 ease-in-out z-50">
+                    <button 
+                      onClick={() => setAvatarModalOpen(true)} 
+                      className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-white/5 transition-colors duration-150 flex items-center gap-2"
+                    >
+                      <UserIcon size={14} />
+                      修改头像
+                    </button>
+                    <button 
+                      onClick={logout} 
+                      className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-white/5 transition-colors duration-150"
+                    >
+                      退出登录
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -162,8 +181,8 @@ export const Navbar: React.FC = () => {
                 {user ? (
                    <div className="px-4">
                       <div className="flex items-center gap-3 mb-4">
-                         <img src={user.avatar} className="w-8 h-8 rounded"/>
-                         <span className="text-white">{user.name}</span>
+                         <img src={getAvatarUrl(user)} className="w-8 h-8 rounded"/>
+                         <span className="text-white">{user.nickname || user.username || user.name}</span>
                       </div>
                       <button onClick={logout} className="text-red-400 w-full text-left">退出登录</button>
                    </div>
@@ -174,6 +193,14 @@ export const Navbar: React.FC = () => {
            </div>
         </div>
       )}
+      
+      {/* Avatar Modal */}
+      <AvatarModal 
+        isOpen={isAvatarModalOpen}
+        onClose={() => setAvatarModalOpen(false)}
+        currentAvatar={user ? getAvatarUrl(user) : undefined}
+        onSuccess={(newAvatarUrl) => updateAvatar(newAvatarUrl)}
+      />
     </>
   );
 };

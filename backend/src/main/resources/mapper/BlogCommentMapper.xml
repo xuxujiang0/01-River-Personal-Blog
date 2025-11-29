@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.river.blog.mapper.BlogCommentMapper">
+    
+    <resultMap id="BaseResultMap" type="com.river.blog.entity.BlogComment">
+        <id column="id" property="id"/>
+        <result column="post_id" property="postId"/>
+        <result column="user_id" property="userId"/>
+        <result column="content" property="content"/>
+        <result column="parent_id" property="parentId"/>
+        <result column="created_at" property="createdAt"/>
+        <result column="updated_at" property="updatedAt"/>
+        <result column="username" property="username"/>
+        <result column="nickname" property="nickname"/>
+        <result column="avatar" property="avatar"/>
+    </resultMap>
+    
+    <sql id="Base_Column_List">
+        c.id, c.post_id, c.user_id, c.content, c.parent_id, c.created_at, c.updated_at,
+        u.username, u.nickname, u.avatar
+    </sql>
+    
+    <!-- 根据ID查询 -->
+    <select id="selectById" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM blog_comments c
+        LEFT JOIN users u ON c.user_id = u.id
+        WHERE c.id = #{id}
+    </select>
+    
+    <!-- 根据文章ID查询评论列表 -->
+    <select id="selectByPostId" resultMap="BaseResultMap">
+        SELECT <include refid="Base_Column_List"/>
+        FROM blog_comments c
+        LEFT JOIN users u ON c.user_id = u.id
+        WHERE c.post_id = #{postId}
+        ORDER BY c.created_at DESC
+    </select>
+    
+    <!-- 插入评论 -->
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO blog_comments (post_id, user_id, content, parent_id)
+        VALUES (#{postId}, #{userId}, #{content}, #{parentId})
+    </insert>
+    
+    <!-- 删除评论 -->
+    <delete id="deleteById">
+        DELETE FROM blog_comments WHERE id = #{id}
+    </delete>
+    
+    <!-- 根据文章ID删除所有评论 -->
+    <delete id="deleteByPostId">
+        DELETE FROM blog_comments WHERE post_id = #{postId}
+    </delete>
+    
+    <!-- 统计文章评论数 -->
+    <select id="countByPostId" resultType="int">
+        SELECT COUNT(*) FROM blog_comments WHERE post_id = #{postId}
+    </select>
+    
+</mapper>

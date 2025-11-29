@@ -41,6 +41,9 @@ public class SecurityConfig {
                 .requestMatchers("/blogs/{id}").permitAll()
                 .requestMatchers("/projects").permitAll()
                 .requestMatchers("/files/**").permitAll()
+                .requestMatchers("/users/admin-profile").permitAll()  // 允许公开访问管理员信息
+                .requestMatchers("/tags").permitAll()  // 允许公开访问标签列表
+                .requestMatchers("/MP_verify_*.txt").permitAll()  // 微信公众平台验证文件
                 // 需要认证的接口
                 .anyRequest().authenticated()
             )

@@ -65,7 +65,19 @@ public class BlogPostController {
     @PostMapping
     public Result<BlogPost> createBlog(@RequestBody Map<String, Object> params, Authentication authentication) {
         try {
-            Long userId = (Long) authentication.getPrincipal();
+            // 获取用户ID
+            Long userId = null;
+            if (authentication != null && authentication.getPrincipal() != null) {
+                try {
+                    userId = Long.valueOf(authentication.getPrincipal().toString());
+                } catch (Exception e) {
+                    userId = ((Number) authentication.getPrincipal()).longValue();
+                }
+            }
+            
+            if (userId == null) {
+                return Result.error("用户未登录");
+            }
             
             BlogPost blogPost = new BlogPost();
             blogPost.setUserId(userId);
@@ -78,10 +90,15 @@ public class BlogPostController {
             @SuppressWarnings("unchecked")
             List<String> tags = (List<String>) params.get("tags");
             
+            @SuppressWarnings("unchecked")
+            List<String> contentImages = (List<String>) params.get("contentImages");
+            blogPost.setContentImages(contentImages);
+            
             BlogPost result = blogPostService.createBlog(blogPost, tags);
             return Result.success(result);
         } catch (Exception e) {
-            return Result.error(e.getMessage());
+            e.printStackTrace();
+            return Result.error("创建博客失败: " + e.getMessage());
         }
     }
     

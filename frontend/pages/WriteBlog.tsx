@@ -8,12 +8,9 @@ import {
   ChevronLeft, Plus, Terminal, ChevronDown, Layout, Type,
   Save, Trash2
 } from 'lucide-react';
-
-const PRESET_TAGS = [
-  'Frontend', 'React', 'Vue', 'TypeScript', 
-  'Design', 'Cyberpunk', 'Backend', 'Life', 
-  'Tutorial', 'Algorithm', 'WebGL'
-];
+import { uploadFile, getFileUrl } from '../api/file';
+import * as tagApi from '../api/tag';
+import * as blogApi from '../api/blog';
 
 const DRAFT_KEY = 'river_blog_draft';
 
@@ -34,12 +31,17 @@ export const WriteBlog: React.FC = () => {
   const [images, setImages] = useState<string[]>([]); // Content Images
   const [tags, setTags] = useState<string[]>([]);
   
+  // Tag State
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+  
   // UI State
   const [tagInput, setTagInput] = useState('');
   const [showTagSelector, setShowTagSelector] = useState(false);
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState('javascript');
   const [hasDraft, setHasDraft] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   // Security & Logout Redirect
   useEffect(() => {
@@ -48,10 +50,33 @@ export const WriteBlog: React.FC = () => {
       return;
     }
     if (user.role !== 'admin') {
-      alert('权限不足：仅管理员可访问此页面');
+      window.toast?.error('权限不足：仅管理员可访问此页面');
       navigate(PageRoute.BLOG);
     }
   }, [user, navigate]);
+
+  // 加载数据库中的标签
+  useEffect(() => {
+    const fetchTags = async () => {
+      setLoadingTags(true);
+      try {
+        console.log('[写博客] 开始加载标签列表...');
+        const tagList = await tagApi.getAllTags();
+        // 提取标签名称，按创建时间降序（后端已按时间排序）
+        const tagNames = tagList.map(tag => tag.name);
+        console.log('[写博客] 加载到', tagNames.length, '个标签:', tagNames);
+        setAvailableTags(tagNames);
+      } catch (error) {
+        console.error('[写博客] 加载标签失败:', error);
+        // 失败时使用默认标签
+        setAvailableTags(['Frontend', 'React', 'Vue', 'TypeScript', 'Design', 'Backend', 'Life']);
+      } finally {
+        setLoadingTags(false);
+      }
+    };
+    
+    fetchTags();
+  }, []);
 
   // Handle Data Loading (Clone vs Draft)
   useEffect(() => {
@@ -105,11 +130,17 @@ export const WriteBlog: React.FC = () => {
     const draftData = { title, cover, content, images, tags };
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draftData));
     setHasDraft(true);
-    alert('草稿已保存');
+    window.toast?.success('草稿已保存');
   };
 
-  const handleDeleteDraft = () => {
-    if (window.confirm('确定要清空当前草稿吗？此操作无法撤销。')) {
+  const handleDeleteDraft = async () => {
+    const confirmed = await window.toast?.confirm('确定要清空当前草稿吗？此操作无法撤销。', {
+      title: '删除草稿',
+      confirmText: '确定删除',
+      cancelText: '取消'
+    });
+    
+    if (confirmed) {
       localStorage.removeItem(DRAFT_KEY);
       setHasDraft(false);
       setTitle('');
@@ -117,7 +148,7 @@ export const WriteBlog: React.FC = () => {
       setContent('');
       setImages([]);
       setTags([]);
-      alert('草稿已删除');
+      window.toast?.success('草稿已删除');
     }
   };
 
@@ -127,11 +158,19 @@ export const WriteBlog: React.FC = () => {
   };
 
   // Handle Cover File Change
-  const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setCover(url);
+      try {
+        console.log('开始上传封面图片:', file.name);
+        // 上传文件到服务器
+        const result = await uploadFile(file);
+        console.log('封面上传成功, URL:', result.url);
+        setCover(result.url);
+      } catch (error) {
+        console.error('封面上传失败:', error);
+        window.toast?.error('封面上传失败，请重试');
+      }
     }
     if (e.target) e.target.value = '';
   };
@@ -142,11 +181,19 @@ export const WriteBlog: React.FC = () => {
   };
 
   // Handle Content Image File Change
-  const handleContentImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleContentImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setImages([...images, url]);
+      try {
+        console.log('开始上传内容图片:', file.name);
+        // 上传文件到服务器
+        const result = await uploadFile(file);
+        console.log('内容图片上传成功, URL:', result.url);
+        setImages([...images, result.url]);
+      } catch (error) {
+        console.error('图片上传失败:', error);
+        window.toast?.error('图片上传失败，请重试');
+      }
     }
     if (e.target) e.target.value = '';
   };
@@ -188,32 +235,69 @@ export const WriteBlog: React.FC = () => {
   };
 
   const confirmCodeBlock = () => {
-    const codeTemplate = `\n\`\`\`${selectedLanguage}\n// 在此编写代码...\n\`\`\`\n`;
+    const codeTemplate = `
+\`\`\`${selectedLanguage}
+// 在此编写代码...
+\`\`\`
+`;
     insertTextAtCursor(codeTemplate);
     setShowCodeModal(false);
   };
 
-  const handlePublish = () => {
-    if (!title.trim()) return alert('请输入博客标题');
-    if (!content.trim()) return alert('请填写博客内容');
+  const handlePublish = async () => {
+    // 表单验证
+    if (!title.trim()) {
+      window.toast?.error('请输入博客标题');
+      return;
+    }
+    if (!content.trim()) {
+      window.toast?.error('请填写博客内容');
+      return;
+    }
     
-    const newPost = {
-      id: Date.now().toString(),
-      title,
-      excerpt: content.substring(0, 100) + '...',
-      content: content.replace(/\n/g, '<br/>'),
-      contentImages: images,
-      cover: cover || `https://picsum.photos/seed/${Date.now()}/800/450`,
-      date: new Date().toISOString().split('T')[0],
-      views: 0,
-      comments: 0,
-      tags: tags.length > 0 ? tags : ['General'],
-      status: 'published' as const
-    };
-
-    addBlog(newPost);
-    localStorage.removeItem(DRAFT_KEY);
-    navigate(PageRoute.BLOG);
+    setIsPublishing(true);
+    
+    try {
+      console.log('[写博客] 开始发布博客...');
+      console.log('[写博客] 封面:', cover);
+      console.log('[写博客] 内容图片:', images);
+      console.log('[写博客] 标签:', tags);
+      
+      // 构建请求数据
+      const blogData: blogApi.BlogPostRequest = {
+        title: title.trim(),
+        excerpt: content.substring(0, 100) + '...',
+        content: content.replace(/\n/g, '<br/>'),
+        cover: cover || `https://picsum.photos/seed/${Date.now()}/800/450`,
+        tags: tags.length > 0 ? tags : ['General'],
+        contentImages: images,
+        status: 'published'
+      };
+      
+      console.log('[写博客] 请求数据:', blogData);
+      
+      // 调用后端 API 创建博客
+      const newBlog = await blogApi.createBlog(blogData);
+      console.log('[写博客] 发布成功, 博客ID:', newBlog.id);
+      
+      // 更新前端 store
+      addBlog(newBlog);
+      
+      // 清除草稿
+      localStorage.removeItem(DRAFT_KEY);
+      
+      // 显示成功提示
+      window.toast?.success('博客发布成功！');
+      
+      // 跳转到博客列表
+      navigate(PageRoute.BLOG);
+      
+    } catch (error: any) {
+      console.error('[写博客] 发布失败:', error);
+      window.toast?.error(error?.message || '博客发布失败，请重试');
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   return (
@@ -270,9 +354,21 @@ export const WriteBlog: React.FC = () => {
 
           <button 
             onClick={handlePublish}
-            className="bg-[#39ff14] hover:bg-[#32d712] text-black font-bold px-8 py-2.5 rounded-lg transition-all shadow-[0_0_20px_rgba(57,255,20,0.3)] hover:shadow-[0_0_30px_rgba(57,255,20,0.5)] transform hover:-translate-y-0.5"
+            disabled={isPublishing}
+            className={`px-8 py-2.5 rounded-lg font-bold transition-all transform ${
+              isPublishing
+                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                : 'bg-[#39ff14] hover:bg-[#32d712] text-black shadow-[0_0_20px_rgba(57,255,20,0.3)] hover:shadow-[0_0_30px_rgba(57,255,20,0.5)] hover:-translate-y-0.5'
+            }`}
           >
-            发布博客
+            {isPublishing ? (
+              <span className="flex items-center gap-2">
+                <div className="w-4 h-4 border-2 border-gray-400 border-t-gray-600 rounded-full animate-spin" />
+                发布中...
+              </span>
+            ) : (
+              '发布博客'
+            )}
           </button>
         </div>
       </div>
@@ -330,7 +426,16 @@ export const WriteBlog: React.FC = () => {
                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {images.map((img, idx) => (
                       <div key={idx} className="relative aspect-video group rounded-lg overflow-hidden border border-gray-700 bg-gray-900">
-                        <img src={img} alt="content" className="w-full h-full object-cover" />
+                        <img 
+                          src={getFileUrl(img)} 
+                          alt="content" 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            console.error('内容图片加载失败:', img, '完整URL:', getFileUrl(img));
+                            e.currentTarget.src = 'https://via.placeholder.com/400x300?text=图片加载失败';
+                          }}
+                          onLoad={() => console.log('内容图片加载成功:', getFileUrl(img))}
+                        />
                         <button 
                           onClick={() => removeImage(idx)}
                           className="absolute top-2 right-2 bg-black/70 text-white p-1.5 rounded-full hover:bg-red-500 transition-colors"
@@ -361,7 +466,16 @@ export const WriteBlog: React.FC = () => {
               >
                  {cover ? (
                    <>
-                     <img src={cover} alt="Cover" className="w-full h-full object-cover transition-opacity group-hover:opacity-75" />
+                     <img 
+                       src={getFileUrl(cover)} 
+                       alt="Cover" 
+                       className="w-full h-full object-cover transition-opacity group-hover:opacity-75"
+                       onError={(e) => {
+                         console.error('封面图片加载失败:', cover, '完整URL:', getFileUrl(cover));
+                         e.currentTarget.src = 'https://via.placeholder.com/800x450?text=图片加载失败';
+                       }}
+                       onLoad={() => console.log('封面图片加载成功:', getFileUrl(cover))}
+                     />
                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <span className="bg-black/60 text-white px-4 py-2 rounded-full text-sm backdrop-blur-sm">更换封面</span>
                      </div>
@@ -404,13 +518,15 @@ export const WriteBlog: React.FC = () => {
                  
                  {showTagSelector && (
                    <div className="mt-3 p-3 bg-gray-900/50 rounded-lg border border-gray-800">
-                      <div className="text-xs text-gray-500 mb-2">常用标签：</div>
+                      <div className="text-xs text-gray-500 mb-2">
+                        {loadingTags ? '加载中...' : `可用标签 (${availableTags.length}):`}
+                      </div>
                       <div className="flex flex-wrap gap-2">
-                         {PRESET_TAGS.map(tag => (
+                         {availableTags.map(tag => (
                            <button 
                              key={tag}
                              onClick={() => handleAddTag(tag)}
-                             disabled={tags.includes(tag)}
+                             disabled={tags.includes(tag) || loadingTags}
                              className={`text-xs px-2 py-1 rounded border transition-colors ${
                                tags.includes(tag) 
                                  ? 'bg-indigo-900/30 border-indigo-900 text-indigo-300 opacity-50' 

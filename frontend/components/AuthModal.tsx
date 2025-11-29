@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { X, Github, MessageCircle, Lock, User } from 'lucide-react';
+import { X, Lock, User } from 'lucide-react';
 import { useAppStore } from '../store';
+import { useNavigate } from 'react-router-dom';
 
 export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, closeAuthModal, login } = useAppStore();
-  const [showAdminForm, setShowAdminForm] = useState(false);
+  const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -14,15 +15,14 @@ export const AuthModal: React.FC = () => {
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      alert('请输入账号和密码');
+      window.toast?.error('请输入账号和密码');
       return;
     }
     
     setIsLoading(true);
     try {
-      await login('admin', { username, password });
+      await login({ username, password });
       closeAuthModal();
-      setShowAdminForm(false);
       setUsername('');
       setPassword('');
     } catch (error) {
@@ -33,31 +33,24 @@ export const AuthModal: React.FC = () => {
   };
 
   const handleWechatLogin = async () => {
-    setIsLoading(true);
-    try {
-      await login('wechat');
-      closeAuthModal();
-    } catch (error) {
-      console.error('微信登录失败:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    // 移除微信登录功能
+  };
+  
+  const handleQrcodeRefresh = async () => {
+    // 移除微信登录功能
+  };
+  
+  const handleQrcodeClose = () => {
+    // 移除微信登录功能
   };
 
   const handleGithubLogin = async () => {
-    setIsLoading(true);
-    try {
-      await login('github');
-      closeAuthModal();
-    } catch (error) {
-      console.error('GitHub登录失败:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    // 移除GitHub登录功能
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] grid place-items-center p-4 overflow-y-auto">
+    <>
+      <div className="fixed inset-0 z-[9999] grid place-items-center p-4 overflow-y-auto">
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/90 backdrop-blur-sm"
@@ -70,7 +63,6 @@ export const AuthModal: React.FC = () => {
         <button 
           onClick={() => {
             closeAuthModal();
-            setShowAdminForm(false);
             setUsername('');
             setPassword('');
           }}
@@ -80,49 +72,10 @@ export const AuthModal: React.FC = () => {
         </button>
         
         <div className="text-center mb-8">
-           <h2 className="text-2xl font-bold text-white font-mono tracking-wider">ACCESS CONTROL</h2>
-           <p className="text-slate-500 text-xs mt-2 uppercase tracking-widest">
-             {showAdminForm ? 'Admin Login' : 'Identify Yourself'}
-           </p>
+           <h2 className="text-2xl font-bold text-white font-mono tracking-wider">River Blog</h2>
         </div>
-
-        {!showAdminForm ? (
-          <div className="space-y-4">
-            <button
-              onClick={handleWechatLogin}
-              disabled={isLoading}
-              className="w-full bg-[#07C160] hover:bg-[#06ad56] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl flex items-center justify-center space-x-3 transition-colors font-bold shadow-lg shadow-green-900/20"
-            >
-              <MessageCircle size={20} />
-              <span>{isLoading ? '登录中...' : '微信一键登录'}</span>
-            </button>
-            <button
-              onClick={handleGithubLogin}
-              disabled={isLoading}
-              className="w-full bg-[#24292e] hover:bg-[#2f363d] disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl flex items-center justify-center space-x-3 transition-colors font-bold shadow-lg shadow-gray-900/20"
-            >
-              <Github size={20} />
-              <span>{isLoading ? '登录中...' : 'GitHub 登录'}</span>
-            </button>
-            
-            <div className="relative my-8">
-               <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-800"></div>
-               </div>
-               <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
-                  <span className="px-2 bg-[#0d0d0d] text-gray-600">Restricted Area</span>
-               </div>
-            </div>
-
-            <button
-              onClick={() => setShowAdminForm(true)}
-              className="w-full border border-gray-800 hover:border-gray-600 bg-gray-900/30 text-gray-400 hover:text-white py-2 rounded-lg text-xs transition-colors"
-            >
-              管理员入口
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleAdminLogin} className="space-y-4">
+        
+        <form onSubmit={handleAdminLogin} className="space-y-4">
             <div>
               <label className="block text-xs text-gray-500 mb-2 uppercase tracking-wider">账号</label>
               <div className="relative">
@@ -159,21 +112,23 @@ export const AuthModal: React.FC = () => {
             >
               {isLoading ? '登录中...' : '登录'}
             </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setShowAdminForm(false);
-                setUsername('');
-                setPassword('');
-              }}
-              className="w-full border border-gray-800 hover:border-gray-600 bg-gray-900/30 text-gray-400 hover:text-white py-2 rounded-lg text-xs transition-colors"
-            >
-              返回
-            </button>
           </form>
-        )}
+          
+          {/* 注册入口 - 文本链接样式 */}
+          <div className="mt-4 text-right">
+            <button
+              onClick={() => {
+                closeAuthModal();
+                navigate('/register');
+              }}
+              className="text-xs text-gray-400 hover:text-indigo-400 underline underline-offset-2 transition-colors"
+              title="注册账号"
+            >
+              立即注册
+            </button>
+          </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };

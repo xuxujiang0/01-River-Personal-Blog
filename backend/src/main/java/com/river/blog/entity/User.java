@@ -50,16 +50,6 @@ public class User implements Serializable {
     private String role;
     
     /**
-     * 登录方式: wechat/github/local
-     */
-    private String provider;
-    
-    /**
-     * 第三方登录ID
-     */
-    private String providerId;
-    
-    /**
      * 状态：1-启用，0-禁用
      */
     private Integer status;

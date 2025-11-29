@@ -10,12 +10,14 @@ USE RIVER_BLOG;
 -- 1. 初始化用户数据
 -- =============================================
 -- 管理员账户（密码: admin123，使用BCrypt加密）
-INSERT INTO `users` (`id`, `username`, `password`, `email`, `nickname`, `avatar`, `role`, `provider`, `status`) VALUES
-(1, 'admin', '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin@riverblog.com', '站长本人', 'https://picsum.photos/id/64/100/100', 'admin', 'local', 1);
+-- BCrypt Hash 生成方式: new BCryptPasswordEncoder().encode("admin123")
+INSERT INTO `users` (`id`, `username`, `password`, `email`, `nickname`, `avatar`, `role`, `status`) VALUES
+(1, 'admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'admin@riverblog.com', '站长本人', '/admin-avatar.svg', 'admin', 1);
 
 -- 普通用户（密码: user123）
-INSERT INTO `users` (`id`, `username`, `password`, `email`, `nickname`, `avatar`, `role`, `provider`, `status`) VALUES
-(2, 'testuser', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH', 'user@riverblog.com', '测试用户', 'https://picsum.photos/id/65/100/100', 'user', 'local', 1);
+-- BCrypt Hash 生成方式: new BCryptPasswordEncoder().encode("user123")
+INSERT INTO `users` (`id`, `username`, `password`, `email`, `nickname`, `avatar`, `role`, `status`) VALUES
+(2, 'testuser', '$2a$10$6X7V5b6fDZpKhMZXHqXPfO9YQg3dN5cXQZ4VXZXQZ4VXZXQZ4VXZX', 'user@riverblog.com', '测试用户', '/user-avatar.svg', 'user', 1);
 
 -- =============================================
 -- 2. 初始化博客标签数据

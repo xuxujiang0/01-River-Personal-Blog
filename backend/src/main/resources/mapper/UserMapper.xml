@@ -12,8 +12,6 @@
         <result column="nickname" property="nickname"/>
         <result column="avatar" property="avatar"/>
         <result column="role" property="role"/>
-        <result column="provider" property="provider"/>
-        <result column="provider_id" property="providerId"/>
         <result column="status" property="status"/>
         <result column="created_at" property="createdAt"/>
         <result column="updated_at" property="updatedAt"/>
@@ -21,7 +19,7 @@
     
     <sql id="Base_Column_List">
         id, username, password, email, nickname, avatar, role, 
-        provider, provider_id, status, created_at, updated_at
+        status, created_at, updated_at
     </sql>
     
     <!-- 根据ID查询 -->
@@ -45,17 +43,14 @@
         WHERE email = #{email}
     </select>
     
-    <!-- 根据第三方登录信息查询 -->
-    <select id="selectByProvider" resultMap="BaseResultMap">
-        SELECT <include refid="Base_Column_List"/>
-        FROM users
-        WHERE provider = #{provider} AND provider_id = #{providerId}
-    </select>
-    
     <!-- 插入用户 -->
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO users (username, password, email, nickname, avatar, role, provider, provider_id, status)
-        VALUES (#{username}, #{password}, #{email}, #{nickname}, #{avatar}, #{role}, #{provider}, #{providerId}, #{status})
+        INSERT INTO users (username, password, nickname, avatar, role, status
+        <if test="email != null">, email</if>
+        )
+        VALUES (#{username}, #{password}, #{nickname}, #{avatar}, #{role}, #{status}
+        <if test="email != null">, #{email}</if>
+        )
     </insert>
     
     <!-- 更新用户 -->

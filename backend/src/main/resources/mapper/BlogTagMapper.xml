@@ -10,7 +10,7 @@
     </select>
     
     <!-- 插入标签 -->
-    <insert id="insertTag" useGeneratedKeys="true" keyProperty="id">
+    <insert id="insertTag">
         INSERT INTO blog_tags (name) VALUES (#{name})
     </insert>
     
@@ -31,5 +31,16 @@
     <delete id="deletePostTags">
         DELETE FROM blog_post_tags WHERE post_id = #{postId}
     </delete>
+    
+    <!-- 获取所有标签（按创建时间降序） -->
+    <select id="selectAllTags" resultType="map">
+        SELECT 
+            id,
+            name,
+            created_at as createdAt,
+            (SELECT COUNT(*) FROM blog_post_tags WHERE tag_id = blog_tags.id) as postCount
+        FROM blog_tags
+        ORDER BY created_at DESC
+    </select>
     
 </mapper>

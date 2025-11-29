@@ -52,11 +52,11 @@ export const WriteProject: React.FC = () => {
 
   const handlePublish = () => {
     if (!title.trim()) {
-      alert('请输入作品名称');
+      window.toast?.error('请输入作品名称');
       return;
     }
     if (!description.trim()) {
-      alert('请输入作品描述');
+      window.toast?.error('请输入作品描述');
       return;
     }
     
@@ -70,7 +70,7 @@ export const WriteProject: React.FC = () => {
     };
 
     addProject(newProject);
-    alert('作品发布成功！');
+    window.toast?.success('作品发布成功！');
     navigate(PageRoute.WORKS);
   };
 

@@ -3,6 +3,7 @@ package com.river.blog.service.impl;
 import com.river.blog.entity.BlogPost;
 import com.river.blog.mapper.BlogPostMapper;
 import com.river.blog.mapper.BlogTagMapper;
+import com.river.blog.mapper.BlogCommentMapper;
 import com.river.blog.service.BlogPostService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +22,12 @@ public class BlogPostServiceImpl implements BlogPostService {
     
     private final BlogPostMapper blogPostMapper;
     private final BlogTagMapper blogTagMapper;
+    private final BlogCommentMapper blogCommentMapper;
     
-    public BlogPostServiceImpl(BlogPostMapper blogPostMapper, BlogTagMapper blogTagMapper) {
+    public BlogPostServiceImpl(BlogPostMapper blogPostMapper, BlogTagMapper blogTagMapper, BlogCommentMapper blogCommentMapper) {
         this.blogPostMapper = blogPostMapper;
         this.blogTagMapper = blogTagMapper;
+        this.blogCommentMapper = blogCommentMapper;
     }
     
     @Override
@@ -35,10 +38,13 @@ public class BlogPostServiceImpl implements BlogPostService {
         // 查询列表
         List<BlogPost> list = blogPostMapper.selectList(status, offset, size);
         
-        // 查询每篇博客的标签
+        // 查询每篇博客的标签和图片
         for (BlogPost post : list) {
             List<String> tags = blogTagMapper.selectTagsByPostId(post.getId());
             post.setTags(tags);
+            
+            List<String> contentImages = blogPostMapper.selectContentImages(post.getId());
+            post.setContentImages(contentImages);
         }
         
         // 查询总数
@@ -61,6 +67,14 @@ public class BlogPostServiceImpl implements BlogPostService {
             // 查询标签
             List<String> tags = blogTagMapper.selectTagsByPostId(id);
             blogPost.setTags(tags);
+            
+            // 查询内容图片
+            List<String> contentImages = blogPostMapper.selectContentImages(id);
+            blogPost.setContentImages(contentImages);
+            
+            // 更新评论数
+            int commentCount = blogCommentMapper.countByPostId(id);
+            blogPost.setComments(commentCount);
         }
         return blogPost;
     }
@@ -72,7 +86,14 @@ public class BlogPostServiceImpl implements BlogPostService {
         blogPostMapper.insert(blogPost);
         
         // 保存标签
-        saveTags(blogPost.getId(), tags);
+        if (tags != null && !tags.isEmpty()) {
+            saveTags(blogPost.getId(), tags);
+        }
+        
+        // 保存内容图片
+        if (blogPost.getContentImages() != null && !blogPost.getContentImages().isEmpty()) {
+            saveContentImages(blogPost.getId(), blogPost.getContentImages());
+        }
         
         return getBlogById(blogPost.getId());
     }
@@ -87,7 +108,17 @@ public class BlogPostServiceImpl implements BlogPostService {
         blogTagMapper.deletePostTags(id);
         
         // 保存新标签
-        saveTags(id, tags);
+        if (tags != null && !tags.isEmpty()) {
+            saveTags(id, tags);
+        }
+        
+        // 删除旧图片
+        deleteContentImages(id);
+        
+        // 保存新图片
+        if (blogPost.getContentImages() != null && !blogPost.getContentImages().isEmpty()) {
+            saveContentImages(id, blogPost.getContentImages());
+        }
         
         return getBlogById(id);
     }
@@ -95,8 +126,12 @@ public class BlogPostServiceImpl implements BlogPostService {
     @Override
     @Transactional
     public void deleteBlog(Long id) {
+        // 删除评论
+        blogCommentMapper.deleteByPostId(id);
         // 删除标签关联
         blogTagMapper.deletePostTags(id);
+        // 删除内容图片
+        blogPostMapper.deleteContentImages(id);
         // 删除博客
         blogPostMapper.deleteById(id);
     }
@@ -132,5 +167,23 @@ public class BlogPostServiceImpl implements BlogPostService {
                 blogTagMapper.insertPostTag(postId, tagId);
             }
         }
+    }
+    
+    /**
+     * 保存内容图片
+     */
+    private void saveContentImages(Long postId, List<String> images) {
+        if (images != null && !images.isEmpty()) {
+            for (int i = 0; i < images.size(); i++) {
+                blogPostMapper.insertContentImage(postId, images.get(i), i);
+            }
+        }
+    }
+    
+    /**
+     * 删除内容图片
+     */
+    private void deleteContentImages(Long postId) {
+        blogPostMapper.deleteContentImages(postId);
     }
 }

@@ -1,13 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Mail, MapPin, Briefcase, Heart } from 'lucide-react';
+import { getAvatarUrl } from '../utils/avatar';
+import * as authApi from '../api/auth';
 
 export const About: React.FC = () => {
+  const [adminAvatar, setAdminAvatar] = useState<string>('/admin-avatar.svg');
+  
+  // 组件加载时获取管理员头像
+  useEffect(() => {
+    const fetchAdminProfile = async () => {
+      try {
+        console.log('[关于页面] 开始获取管理员信息...');
+        const adminProfile = await authApi.getAdminProfile();
+        console.log('[关于页面] 管理员信息:', adminProfile);
+        
+        // 使用 getAvatarUrl 处理头像 URL（处理 /files/ 路径等）
+        const avatarUrl = getAvatarUrl({
+          avatar: adminProfile.avatar,
+          role: adminProfile.role
+        });
+        console.log('[关于页面] 处理后的头像URL:', avatarUrl);
+        
+        setAdminAvatar(avatarUrl);
+      } catch (error) {
+        console.error('[关于页面] 获取管理员信息失败:', error);
+        // 失败时使用默认头像
+        setAdminAvatar('/admin-avatar.svg');
+      }
+    };
+    
+    fetchAdminProfile();
+  }, []);
+  
   return (
     <div className="pt-8 pb-12 px-4 max-w-4xl mx-auto min-h-screen flex flex-col md:flex-row gap-8 items-start">
        {/* Left Column: Profile */}
        <div className="w-full md:w-1/3 bg-slate-800 rounded-2xl p-6 border border-slate-700 sticky top-40">
           <div className="w-32 h-32 mx-auto rounded-full overflow-hidden border-4 border-indigo-500/30 mb-6">
-             <img src="https://picsum.photos/id/64/300/300" alt="Me" className="w-full h-full object-cover" />
+             <img 
+               src={adminAvatar} 
+               alt="Profile" 
+               className="w-full h-full object-cover" 
+             />
           </div>
           <h2 className="text-2xl font-bold text-white text-center mb-1">River Xu</h2>
           <p className="text-indigo-400 text-center text-sm mb-6">顶级爱生活的无敌顾问</p>
@@ -45,10 +79,7 @@ export const About: React.FC = () => {
              </h1>
              <div className="prose prose-invert text-slate-300 leading-relaxed">
                 <p>
-                   你好！我是 Alex，一名热衷于创造极致用户体验的前端工程师。拥有5年的开发经验，专注于构建高性能、可访问性强且视觉震撼的 Web 应用。
-                </p>
-                <p>
-                   我不仅关注代码的整洁与架构的优雅，更痴迷于微交互带来的惊喜感。我相信好的设计不仅仅是外观，更是功能与情感的连接。
+                   你好！我是 River，以为来自蓝色星球的美男。
                 </p>
              </div>
           </section>

@@ -28,11 +28,6 @@ public interface UserMapper {
     User selectByEmail(@Param("email") String email);
     
     /**
-     * 根据第三方登录信息查询用户
-     */
-    User selectByProvider(@Param("provider") String provider, @Param("providerId") String providerId);
-    
-    /**
      * 插入用户
      */
     int insert(User user);

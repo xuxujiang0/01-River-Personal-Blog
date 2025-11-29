@@ -21,7 +21,17 @@ public class LoginRequest {
     private String password;
     
     /**
-     * 登录方式: admin/wechat/github
+     * 昵称（注册时用）
      */
-    private String provider;
+    private String nickname;
+    
+    /**
+     * 头像（注册时用）
+     */
+    private String avatar;
+    
+    /**
+     * 邮箱（注册时用，可选）
+     */
+    private String email;
 }

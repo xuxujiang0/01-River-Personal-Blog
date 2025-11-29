@@ -89,4 +89,28 @@
         UPDATE blog_posts SET status = #{status} WHERE id = #{id}
     </update>
     
+    <!-- 更新评论数 -->
+    <update id="updateCommentCount">
+        UPDATE blog_posts SET comments = #{comments} WHERE id = #{id}
+    </update>
+    
+    <!-- 查询博客的内容图片 -->
+    <select id="selectContentImages" resultType="string">
+        SELECT image_url
+        FROM blog_content_images
+        WHERE post_id = #{postId}
+        ORDER BY sort_order
+    </select>
+    
+    <!-- 插入内容图片 -->
+    <insert id="insertContentImage">
+        INSERT INTO blog_content_images (post_id, image_url, sort_order)
+        VALUES (#{postId}, #{imageUrl}, #{sortOrder})
+    </insert>
+    
+    <!-- 删除博客的所有内容图片 -->
+    <delete id="deleteContentImages">
+        DELETE FROM blog_content_images WHERE post_id = #{postId}
+    </delete>
+    
 </mapper>

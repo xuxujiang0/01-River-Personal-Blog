@@ -37,11 +37,12 @@ mybatis:
 
 # JWT配置
 jwt:
-  secret: RiverBlogSecretKeyForJWT2024MustBeLongEnoughForHS512Algorithm
+  secret: RiverBlogSecretKeyForJWT2024MustBeLongEnoughForHS512AlgorithmSecurity
   expiration: 604800000  # 7天，单位：毫秒
 
 # 文件上传配置
 file:
+  upload-dir: d:/River/项目/01 River Personal Blog/backend/uploads
   upload:
     path: d:/River/项目/01 River Personal Blog/backend/uploads/
     url-prefix: /api/files/

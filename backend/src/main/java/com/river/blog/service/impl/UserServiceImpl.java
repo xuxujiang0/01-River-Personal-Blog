@@ -29,12 +29,13 @@ public class UserServiceImpl implements UserService {
     
     @Override
     public LoginResponse login(LoginRequest request) {
+
         // 查询用户
         User user = userMapper.selectByUsername(request.getUsername());
         if (user == null) {
             throw new RuntimeException("用户不存在");
         }
-        
+
         // 验证密码
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("密码错误");
@@ -53,7 +54,43 @@ public class UserServiceImpl implements UserService {
         userDTO.setNickname(user.getNickname());
         userDTO.setAvatar(user.getAvatar());
         userDTO.setRole(user.getRole());
-        userDTO.setProvider(user.getProvider());
+        
+        response.setUser(userDTO);
+        return response;
+    }
+    
+    @Override
+    public LoginResponse register(LoginRequest request) {
+        // 验证用户名是否已存在
+        User existUser = userMapper.selectByUsername(request.getUsername());
+        if (existUser != null) {
+            throw new RuntimeException("用户名已存在");
+        }
+        
+        // 创建用户
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setNickname(request.getNickname());
+        user.setAvatar(request.getAvatar());
+        user.setEmail(request.getEmail());
+        user.setRole("user"); // 默认普通用户
+        user.setStatus(1); // 启用
+        
+        userMapper.insert(user);
+        
+        // 注册成功后自动登录
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        
+        LoginResponse response = new LoginResponse();
+        response.setToken(token);
+        
+        LoginResponse.UserDTO userDTO = new LoginResponse.UserDTO();
+        userDTO.setId(user.getId());
+        userDTO.setUsername(user.getUsername());
+        userDTO.setNickname(user.getNickname());
+        userDTO.setAvatar(user.getAvatar());
+        userDTO.setRole(user.getRole());
         
         response.setUser(userDTO);
         return response;

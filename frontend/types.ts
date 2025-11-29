@@ -6,7 +6,6 @@ export interface User {
   nickname?: string;
   avatar: string;
   role: 'admin' | 'user' | 'guest';
-  provider?: 'wechat' | 'github';
 }
 
 export interface BlogPost {

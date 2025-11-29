@@ -34,15 +34,17 @@ public class FileController {
     }
     
     /**
-     * 上传文件（需要认证）
+     * 上传文件（允许匿名上传，用于注册时上传头像）
      */
     @PostMapping("/upload")
-    public Result<Map<String, String>> uploadFile(@RequestParam("file") MultipartFile file, 
-                                                   Authentication authentication) {
+    public Result<String> uploadFile(@RequestParam("file") MultipartFile file, 
+                                      Authentication authentication) {
         try {
-            Long userId = (Long) authentication.getPrincipal();
+            // 如果用户已登录，使用用户ID；否则使用null（注册时）
+            Long userId = authentication != null ? (Long) authentication.getPrincipal() : null;
             Map<String, String> result = fileService.uploadFile(file, userId);
-            return Result.success(result);
+            // 返回文件URL
+            return Result.success(result.get("url"));
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }

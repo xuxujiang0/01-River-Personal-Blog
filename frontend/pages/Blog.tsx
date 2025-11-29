@@ -1,19 +1,20 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Eye, MessageSquare, PenTool, Calendar, ArrowLeft, Send, Loader2, Image as ImageIcon, Trash2, Copy, EyeOff } from 'lucide-react';
 import { useAppStore } from '../store';
 import { useNavigate } from 'react-router-dom';
 import { PageRoute, BlogPost } from '../types';
+import { getBlogDetail } from '../api/blog';
+import * as commentApi from '../api/comment';
+import { getFileUrl } from '../api/file';
+import { getAvatarUrl } from '../utils/avatar';
 
-const MOCK_COMMENTS_DATA = [
-  { id: 101, user: 'CyberNinja', avatar: 'https://picsum.photos/seed/u1/50/50', content: '这篇文章写得太棒了，对 React 18 的理解非常透彻！', date: '2023-10-25' },
-  { id: 102, user: 'VueFan', avatar: 'https://picsum.photos/seed/u2/50/50', content: '虽然我是 Vue 粉，但不得不承认 React 的并发模式很有想法。', date: '2023-10-26' },
-];
+const MOCK_COMMENTS_DATA: any[] = [];
 
 export const Blog: React.FC = () => {
-  const { user, openAuthModal, blogs, deleteBlog, toggleBlogStatus } = useAppStore(); // Load blogs from global store
+  const { user, openAuthModal, blogs, deleteBlog, toggleBlogStatus, loadBlogs: reloadBlogs } = useAppStore(); // Load blogs from global store
   const navigate = useNavigate();
   const [activePostId, setActivePostId] = useState<string | null>(null);
+  const [activePost, setActivePost] = useState<BlogPost | null>(null);
   const [commentText, setCommentText] = useState('');
   const [postComments, setPostComments] = useState(MOCK_COMMENTS_DATA);
 
@@ -24,9 +25,8 @@ export const Blog: React.FC = () => {
   const [visibleCount, setVisibleCount] = useState(6);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   
-  const activePost = activePostId ? blogs.find(b => b.id === activePostId) : null;
   const visibleBlogs = filteredBlogs.slice(0, visibleCount);
-  const hasMore = visibleCount < filteredBlogs.length + 10; 
+  const hasMore = visibleCount < filteredBlogs.length + 10;
 
   const loadMoreRef = useRef<HTMLDivElement>(null);
   
@@ -49,6 +49,42 @@ export const Blog: React.FC = () => {
     return () => observer.disconnect();
   }, [isLoadingMore, hasMore, activePostId, filteredBlogs.length]);
 
+  // 获取博客详情
+  useEffect(() => {
+    if (activePostId) {
+      const fetchBlogDetail = async () => {
+        try {
+          const blogDetail = await getBlogDetail(activePostId);
+          // 映射后端数据到前端格式
+          const mappedBlog = {
+            ...blogDetail,
+            date: blogDetail.createdAt ? blogDetail.createdAt.split('T')[0] : new Date().toISOString().split('T')[0],
+            id: String(blogDetail.id),
+          };
+          setActivePost(mappedBlog);
+          
+          // 加载评论列表
+          const comments = await commentApi.getComments(activePostId);
+          const mappedComments = comments.map(c => ({
+            id: c.id,
+            user: c.nickname || c.username,
+            avatar: c.avatar,
+            content: c.content,
+            date: c.createdAt.split('T')[0],
+          }));
+          setPostComments(mappedComments);
+        } catch (error) {
+          console.error('获取博客详情失败:', error);
+        }
+      };
+      
+      fetchBlogDetail();
+    } else {
+      setActivePost(null);
+      setPostComments([]);
+    }
+  }, [activePostId]);
+
   const loadMoreBlogs = () => {
     setIsLoadingMore(true);
     setTimeout(() => {
@@ -57,31 +93,63 @@ export const Blog: React.FC = () => {
     }, 1000);
   };
 
-  const handleCommentSubmit = () => {
-    if (!commentText.trim() || !user) return;
+  const handleCommentSubmit = async () => {
+    if (!commentText.trim() || !user || !activePostId) return;
     
-    const newComment = {
-      id: Date.now(),
-      user: user.name,
-      avatar: user.avatar,
-      content: commentText,
-      date: new Date().toISOString().split('T')[0]
-    };
-
-    setPostComments([newComment, ...postComments]);
-    setCommentText('');
-  };
-
-  const handleDelete = (id: string) => {
-    if (window.confirm('确定要删除这篇博客吗？此操作不可恢复。')) {
-      deleteBlog(id);
-      if (activePostId === id) setActivePostId(null);
-      alert('博客删除成功！');
+    try {
+      const newComment = await commentApi.createComment(activePostId, {
+        content: commentText,
+      });
+      
+      // 添加到评论列表
+      const mappedComment = {
+        id: newComment.id,
+        user: newComment.nickname || newComment.username,
+        avatar: newComment.avatar,
+        content: newComment.content,
+        date: newComment.createdAt.split('T')[0],
+      };
+      setPostComments([mappedComment, ...postComments]);
+      setCommentText('');
+      
+      // 更新博客评论数
+      if (activePost) {
+        setActivePost({ ...activePost, comments: activePost.comments + 1 });
+      }
+    } catch (error) {
+      console.error('发表评论失败:', error);
+      window.toast?.error('发表评论失败，请重试');
     }
   };
 
-  const handleClone = (blog: BlogPost) => {
-    if (window.confirm(`确定要克隆 "${blog.title}" 并进行编辑吗？`)) {
+  const handleDelete = async (id: string) => {
+    const confirmed = await window.toast?.confirm('确定要删除这篇博客吗？此操作不可恢复。', {
+      title: '删除博客',
+      confirmText: '确定删除',
+      cancelText: '取消'
+    });
+    
+    if (confirmed) {
+      deleteBlog(id);
+      if (activePostId === id) setActivePostId(null);
+      window.toast?.success('博客删除成功！');
+    }
+  };
+
+  // 返回列表时刷新数据
+  const handleBackToList = () => {
+    setActivePostId(null);
+    reloadBlogs();
+  };
+
+  const handleClone = async (blog: BlogPost) => {
+    const confirmed = await window.toast?.confirm(`确定要克隆 "${blog.title}" 并进行编辑吗？`, {
+      title: '克隆博客',
+      confirmText: '确定',
+      cancelText: '取消'
+    });
+    
+    if (confirmed) {
       navigate(PageRoute.WRITE, { state: { cloneData: blog } });
     }
   };
@@ -91,7 +159,7 @@ export const Blog: React.FC = () => {
     return (
       <div className="pt-8 pb-12 px-4 max-w-4xl mx-auto min-h-screen animate-fadeIn">
         <button 
-          onClick={() => setActivePostId(null)}
+          onClick={handleBackToList}
           className="mb-6 flex items-center text-slate-400 hover:text-indigo-400 transition-colors group"
         >
           <ArrowLeft size={20} className="mr-2 group-hover:-translate-x-1 transition-transform" /> 返回列表
@@ -112,6 +180,7 @@ export const Blog: React.FC = () => {
               <div className="flex items-center gap-6">
                  <span className="flex items-center gap-2"><Calendar size={16}/> {activePost.date}</span>
                  <span className="flex items-center gap-2"><Eye size={16}/> {activePost.views} 阅读</span>
+                 <span className="flex items-center gap-2"><MessageSquare size={16}/> {activePost.comments} 评论</span>
               </div>
               <span className="text-indigo-400">By Admin</span>
            </div>
@@ -122,7 +191,7 @@ export const Blog: React.FC = () => {
            {activePost.contentImages && activePost.contentImages.length > 0 && (
               <div className="grid grid-cols-2 gap-4 mb-8 not-prose">
                  {activePost.contentImages.map((img, i) => (
-                    <img key={i} src={img} alt="content" className="rounded-lg border border-gray-800 w-full h-auto" />
+                    <img key={i} src={getFileUrl(img)} alt="content" className="rounded-lg border border-gray-800 w-full h-auto" />
                  ))}
               </div>
            )}
@@ -140,12 +209,12 @@ export const Blog: React.FC = () => {
            <div className="mb-8">
              {user ? (
                <div className="flex gap-4">
-                 <img src={user.avatar} alt="me" className="w-10 h-10 rounded bg-gray-800 flex-shrink-0" />
+                 <img src={getAvatarUrl(user)} alt="me" className="w-10 h-10 rounded bg-gray-800 flex-shrink-0" />
                  <div className="flex-1">
                     <textarea 
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
-                      placeholder={`以 ${user.provider === 'wechat' ? '微信' : user.provider === 'github' ? 'GitHub' : '管理员'} 用户身份发表评论...`}
+                      placeholder={`以 ${user.role === 'admin' ? '管理员' : '用户'} 身份发表评论...`}
                       className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500 min-h-[100px] resize-none"
                     />
                     <div className="mt-2 flex justify-end">
@@ -175,7 +244,7 @@ export const Blog: React.FC = () => {
            <div className="space-y-6">
               {postComments.map(comment => (
                 <div key={comment.id} className="flex gap-4 animate-fadeIn">
-                   <img src={comment.avatar} alt={comment.user} className="w-10 h-10 rounded bg-gray-800" />
+                   <img src={getAvatarUrl({ avatar: comment.avatar, role: null })} alt={comment.user} className="w-10 h-10 rounded bg-gray-800" />
                    <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
                          <h4 className="text-white font-medium text-sm">{comment.user}</h4>
@@ -222,7 +291,7 @@ export const Blog: React.FC = () => {
             {/* Image Container */}
             <div className="w-full aspect-video overflow-hidden relative bg-slate-900">
               <img 
-                src={blog.cover} 
+                src={getFileUrl(blog.cover)} 
                 alt={blog.title} 
                 className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${blog.status === 'hidden' ? 'grayscale' : ''}`}
               />

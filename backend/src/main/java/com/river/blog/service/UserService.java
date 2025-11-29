@@ -17,6 +17,11 @@ public interface UserService {
     LoginResponse login(LoginRequest request);
     
     /**
+     * 用户注册
+     */
+    LoginResponse register(LoginRequest request);
+    
+    /**
      * 根据ID查询用户
      */
     User getUserById(Long id);

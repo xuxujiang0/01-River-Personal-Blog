@@ -49,4 +49,17 @@ public class AuthController {
             return Result.error(e.getMessage());
         }
     }
+    
+    /**
+     * 用户注册
+     */
+    @PostMapping("/register")
+    public Result<LoginResponse> register(@RequestBody LoginRequest request) {
+        try {
+            LoginResponse response = userService.register(request);
+            return Result.success(response);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
 }

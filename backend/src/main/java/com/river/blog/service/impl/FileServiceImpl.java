@@ -55,8 +55,8 @@ public class FileServiceImpl implements FileService {
             Path filePath = Paths.get(uploadPath, filename);
             Files.write(filePath, file.getBytes());
             
-            // 构建访问URL
-            String fileUrl = urlPrefix + filename;
+            // 构建访问URL（返回相对路径，不包含/api前缀）
+            String fileUrl = "/files/" + filename;
             
             // 返回结果
             Map<String, String> result = new HashMap<>();

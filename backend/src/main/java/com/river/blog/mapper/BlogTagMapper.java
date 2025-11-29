@@ -4,6 +4,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 博客标签Mapper
@@ -37,4 +38,9 @@ public interface BlogTagMapper {
      * 删除文章的所有标签关联
      */
     int deletePostTags(@Param("postId") Long postId);
+    
+    /**
+     * 获取所有标签（按创建时间降序）
+     */
+    List<Map<String, Object>> selectAllTags();
 }
