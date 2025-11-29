@@ -42,10 +42,12 @@ jwt:
 
 # 文件上传配置
 file:
-  upload-dir: d:/River/项目/01 River Personal Blog/backend/uploads
   upload:
-    path: d:/River/项目/01 River Personal Blog/backend/uploads/
-    url-prefix: /api/files/
+    # 使用相对路径，基于项目运行目录
+    # 开发环境：项目根目录下的 uploads 文件夹
+    # 生产环境：jar包同级目录下的 uploads 文件夹
+    path: ./uploads
+    url-prefix: /files/
 
 # 日志配置
 logging:

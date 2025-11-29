@@ -73,25 +73,52 @@ export const register = (data: RegisterRequest) => {
  * 上传头像
  */
 export const uploadAvatar = async (file: File): Promise<string> => {
-  const formData = new FormData();
-  formData.append('file', file);
-  
-  const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/files/upload`, {
-    method: 'POST',
-    body: formData,
-  });
-  
-  if (!response.ok) {
-    throw new Error('头像上传失败');
+  try {
+    console.log('[注册] 开始上传头像:', file.name, '大小:', (file.size / 1024).toFixed(2), 'KB');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+    console.log('[注册] 请求URL:', `${API_BASE_URL}/files/upload`);
+    
+    const response = await fetch(`${API_BASE_URL}/files/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    
+    console.log('[注册] 响应状态:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[注册] 请求失败:', errorText);
+      throw new Error(`头像上传失败: ${response.status} ${response.statusText}`);
+    }
+    
+    // 检查响应是否为空
+    const text = await response.text();
+    console.log('[注册] 原始响应:', text);
+    
+    if (!text || text.trim() === '') {
+      throw new Error('服务器返回了空响应');
+    }
+    
+    const result = JSON.parse(text);
+    console.log('[注册] 解析后的响应:', result);
+    
+    if (result.code !== 200) {
+      throw new Error(result.message || '头像上传失败');
+    }
+    
+    // 返回 URL（支持两种格式）
+    const avatarUrl = result.data.url || result.data;
+    console.log('[注册] 头像上传成功, URL:', avatarUrl);
+    
+    return avatarUrl;
+  } catch (error: any) {
+    console.error('[注册] 头像上传失败:', error);
+    throw error;
   }
-  
-  const result = await response.json();
-  
-  if (result.code !== 200) {
-    throw new Error(result.message || '头像上传失败');
-  }
-  
-  return result.data;
 };
 
 /**

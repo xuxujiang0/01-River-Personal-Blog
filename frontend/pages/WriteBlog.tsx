@@ -161,15 +161,33 @@ export const WriteBlog: React.FC = () => {
   const handleCoverFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // 文件大小验证 (10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        window.toast?.error('封面图片大小不能超过10MB');
+        e.target.value = '';
+        return;
+      }
+      
+      // 文件类型验证
+      if (!file.type.startsWith('image/')) {
+        window.toast?.error('请选择图片文件');
+        e.target.value = '';
+        return;
+      }
+      
       try {
-        console.log('开始上传封面图片:', file.name);
+        console.log('[写博客] 开始上传封面图片:', file.name, '大小:', (file.size / 1024).toFixed(2), 'KB');
+        window.toast?.info('正在上传封面图片...');
+        
         // 上传文件到服务器
         const result = await uploadFile(file);
-        console.log('封面上传成功, URL:', result.url);
+        console.log('[写博客] 封面上传成功, URL:', result.url);
+        
         setCover(result.url);
-      } catch (error) {
-        console.error('封面上传失败:', error);
-        window.toast?.error('封面上传失败，请重试');
+        window.toast?.success('封面图片上传成功！');
+      } catch (error: any) {
+        console.error('[写博客] 封面上传失败:', error);
+        window.toast?.error(error?.message || '封面上传失败，请重试');
       }
     }
     if (e.target) e.target.value = '';
@@ -184,15 +202,33 @@ export const WriteBlog: React.FC = () => {
   const handleContentImageFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // 文件大小验证 (10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        window.toast?.error('图片大小不能超过10MB');
+        e.target.value = '';
+        return;
+      }
+      
+      // 文件类型验证
+      if (!file.type.startsWith('image/')) {
+        window.toast?.error('请选择图片文件');
+        e.target.value = '';
+        return;
+      }
+      
       try {
-        console.log('开始上传内容图片:', file.name);
+        console.log('[写博客] 开始上传内容图片:', file.name, '大小:', (file.size / 1024).toFixed(2), 'KB');
+        window.toast?.info('正在上传图片...');
+        
         // 上传文件到服务器
         const result = await uploadFile(file);
-        console.log('内容图片上传成功, URL:', result.url);
+        console.log('[写博客] 内容图片上传成功, URL:', result.url);
+        
         setImages([...images, result.url]);
-      } catch (error) {
-        console.error('图片上传失败:', error);
-        window.toast?.error('图片上传失败，请重试');
+        window.toast?.success('图片上传成功！');
+      } catch (error: any) {
+        console.error('[写博客] 图片上传失败:', error);
+        window.toast?.error(error?.message || '图片上传失败，请重试');
       }
     }
     if (e.target) e.target.value = '';
