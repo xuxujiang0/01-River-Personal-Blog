@@ -100,19 +100,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         password: credentials.password,
       });
       
+      console.log('[登录成功] 后端返回的用户信息:', response.user);
+      console.log('[登录成功] 用户头像路径:', response.user.avatar);
+      
       // 保存登录信息
       authApi.saveLoginInfo(response);
       // 映射后端用户数据到前端格式
-      setUser({
+      const userInfo = {
         id: response.user.id,
         name: response.user.nickname || response.user.username,
         username: response.user.username,
         nickname: response.user.nickname,
         avatar: response.user.avatar,
         role: response.user.role as 'admin' | 'user' | 'guest',
-      });
+      };
+      
+      console.log('[登录成功] 设置到状态的用户信息:', userInfo);
+      setUser(userInfo);
     } catch (error: any) {
-      console.error('登录失败:', error);
+      console.error('[登录失败]:', error);
       const errorMessage = error?.message || '登录失败，请重试';
       window.toast?.error(errorMessage);
       throw error;
