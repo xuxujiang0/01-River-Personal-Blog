@@ -79,7 +79,7 @@ export const About: React.FC = () => {
              </h1>
              <div className="prose prose-invert text-slate-300 leading-relaxed">
                 <p>
-                   你好！我是 River，以为来自蓝色星球的美男。
+                   你好！我是 River，一位来自蓝色星球的美男。
                 </p>
              </div>
           </section>
@@ -88,7 +88,7 @@ export const About: React.FC = () => {
              <h2 className="text-2xl font-bold text-white mb-6">工作经历</h2>
              <div className="space-y-8 border-l-2 border-slate-700 ml-3 pl-8 relative">
                 {[
-                  { role: '徐氏集团董事长', company: '徐氏集团', year: '1989 - Present', desc: '负责整个集团的所有业务。' },
+                  { role: '徐氏董事长', company: '徐氏', year: '1989 - Present', desc: '负责所有业务。' },
                 ].map((job, i) => (
                    <div key={i} className="relative">
                       <span className="absolute -left-[41px] top-1 w-5 h-5 rounded-full bg-slate-900 border-2 border-indigo-500"></span>

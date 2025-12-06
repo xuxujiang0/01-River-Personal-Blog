@@ -16,9 +16,5 @@ public class RiverBlogApplication {
     
     public static void main(String[] args) {
         SpringApplication.run(RiverBlogApplication.class, args);
-        System.out.println("\n========================================");
-        System.out.println("🚀 River Blog Backend Started Successfully!");
-        System.out.println("📝 API Documentation: http://localhost:8080/api");
-        System.out.println("========================================\n");
     }
 }
