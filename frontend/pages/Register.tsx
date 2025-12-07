@@ -6,7 +6,12 @@ import { useAppStore } from '../store';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
-  const { login: storeLogin } = useAppStore();
+  const { login: storeLogin, closeAuthModal } = useAppStore();
+
+  // 确保进入注册页时关闭登录弹窗
+  useEffect(() => {
+    closeAuthModal();
+  }, [closeAuthModal]);
   
   // 表单状态
   const [username, setUsername] = useState('');

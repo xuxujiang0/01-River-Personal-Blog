@@ -107,7 +107,7 @@ export const AvatarModal: React.FC<AvatarModalProps> = ({
       
       {/* Modal Content */}
       <div 
-        className="relative bg-slate-900 border border-slate-700 rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl animate-scaleIn"
+        className="relative bg-slate-900 border border-slate-700 rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl animate-scaleInCenter"
         style={{ maxHeight: '90vh', overflowY: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       >

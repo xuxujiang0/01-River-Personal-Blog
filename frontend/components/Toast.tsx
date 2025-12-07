@@ -43,20 +43,21 @@ export const Toast: React.FC<ToastProps> = ({ message, type, duration = 3000, on
   };
 
   return (
-    <div
-      className={`fixed top-24 left-1/2 -translate-x-1/2 z-[10000] 
-                  flex items-center gap-3 px-6 py-4 rounded-xl border backdrop-blur-sm
-                  ${getStyles()} 
-                  animate-slideDown shadow-[0_8px_32px_rgba(0,0,0,0.4)]`}
-    >
-      {getIcon()}
-      <span className="text-white text-sm font-medium">{message}</span>
-      <button
-        onClick={onClose}
-        className="ml-2 text-gray-400 hover:text-white transition-colors"
+    <div className="fixed inset-x-0 top-24 z-[10000] flex justify-center pointer-events-none">
+      <div
+        className={`pointer-events-auto flex items-center gap-3 px-6 py-4 rounded-xl border backdrop-blur-sm
+                    ${getStyles()} 
+                    animate-slideDown shadow-[0_8px_32px_rgba(0,0,0,0.4)]`}
       >
-        <X size={16} />
-      </button>
+        {getIcon()}
+        <span className="text-white text-sm font-medium">{message}</span>
+        <button
+          onClick={onClose}
+          className="ml-2 text-gray-400 hover:text-white transition-colors"
+        >
+          <X size={16} />
+        </button>
+      </div>
     </div>
   );
 };

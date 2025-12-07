@@ -118,8 +118,8 @@ export const AuthModal: React.FC = () => {
           <div className="mt-4 text-right">
             <button
               onClick={() => {
-                closeAuthModal();
                 navigate('/register');
+                // 不在这里关闭弹窗，而是在注册页面加载完成后关闭，防止闪烁
               }}
               className="text-xs text-gray-400 hover:text-indigo-400 underline underline-offset-2 transition-colors"
               title="注册账号"
