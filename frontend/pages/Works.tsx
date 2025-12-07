@@ -93,11 +93,8 @@ export const Works: React.FC = () => {
                
                {/* Overlay on Hover */}
                <div className="absolute inset-0 bg-slate-900/80 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-4 backdrop-blur-sm z-30 pointer-events-none group-hover:pointer-events-auto">
-                  <a href={project.link} className="p-3 bg-white text-slate-900 rounded-full hover:bg-indigo-400 hover:text-white transition-colors transform hover:scale-110">
+                  <a href={project.link} target="_blank" rel="noopener noreferrer" className="p-3 bg-white text-slate-900 rounded-full hover:bg-indigo-400 hover:text-white transition-colors transform hover:scale-110">
                      <ExternalLink size={24} />
-                  </a>
-                  <a href={project.link} className="p-3 bg-slate-700 text-white rounded-full hover:bg-black transition-colors transform hover:scale-110">
-                     <Github size={24} />
                   </a>
                </div>
             </div>

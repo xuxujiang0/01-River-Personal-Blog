@@ -124,7 +124,15 @@ export const Navbar: React.FC = () => {
                       {user.role === 'admin' ? '管理员' : user.role === 'user' ? '普通用户' : user.role?.toUpperCase()}
                     </div>
                   </div>
-                  <img src={getAvatarUrl(user)} alt="avatar" className="w-9 h-9 rounded bg-gray-800 border border-gray-700 object-cover" />
+                  <img 
+                    src={getAvatarUrl(user)} 
+                    alt="avatar" 
+                    className="w-9 h-9 rounded bg-gray-800 border border-gray-700 object-cover" 
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/user-avatar.svg';
+                    }}
+                  />
                   
                   <div className="absolute top-full right-0 mt-2 w-40 bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-2 opacity-0 group-hover:opacity-100 transition-all duration-200 ease-in-out z-50">
                     <button 

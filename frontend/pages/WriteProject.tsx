@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { PageRoute } from '../types';
+import { uploadFile } from '../api/file';
 import { ChevronLeft, Save, Plus, X, Layout, Type, Link as LinkIcon } from 'lucide-react';
 
 export const WriteProject: React.FC = () => {
@@ -14,6 +15,7 @@ export const WriteProject: React.FC = () => {
   const [description, setDescription] = useState('');
   const [link, setLink] = useState('');
   const [image, setImage] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [techStack, setTechStack] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
 
@@ -31,6 +33,7 @@ export const WriteProject: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setSelectedFile(file);
       const url = URL.createObjectURL(file);
       setImage(url);
     }
@@ -50,7 +53,7 @@ export const WriteProject: React.FC = () => {
     }
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!title.trim()) {
       window.toast?.error('请输入作品名称');
       return;
@@ -60,18 +63,41 @@ export const WriteProject: React.FC = () => {
       return;
     }
     
+    let imageUrl = image;
+    if (selectedFile) {
+      try {
+        const res = await uploadFile(selectedFile);
+        // 如果返回的是相对路径，拼接完整的API地址
+        if (res.url.startsWith('/')) {
+            const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+            imageUrl = apiBase + res.url;
+        } else {
+            imageUrl = res.url;
+        }
+      } catch (error) {
+        console.error('上传封面失败:', error);
+        window.toast?.error('上传封面失败，请重试');
+        return;
+      }
+    }
+
     const newProject = {
       id: Date.now().toString(),
       title,
       description,
       link: link || '#',
-      image: image || `https://picsum.photos/seed/${Date.now()}/800/600`,
+      image: imageUrl || `https://picsum.photos/seed/${Date.now()}/800/600`,
       techStack: techStack.length > 0 ? techStack : ['General']
     };
 
-    addProject(newProject);
-    window.toast?.success('作品发布成功！');
-    navigate(PageRoute.WORKS);
+    try {
+      await addProject(newProject);
+      window.toast?.success('作品发布成功！');
+      navigate(PageRoute.WORKS);
+    } catch (error) {
+      console.error('发布作品失败:', error);
+      window.toast?.error('发布作品失败，请重试');
+    }
   };
 
   return (
