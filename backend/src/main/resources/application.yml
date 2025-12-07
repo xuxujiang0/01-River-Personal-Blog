@@ -7,13 +7,10 @@ spring:
   application:
     name: river-blog
   
-  # 数据源配置
-  datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/RIVER_BLOG?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: root
-    
+  # 激活的配置文件（通过Maven profile控制）
+  profiles:
+    active: @profiles.active@
+  
   # 文件上传配置
   servlet:
     multipart:
@@ -33,26 +30,12 @@ mybatis:
   type-aliases-package: com.river.blog.entity
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 # JWT配置
 jwt:
-  secret: RiverBlogSecretKeyForJWT2024MustBeLongEnoughForHS512AlgorithmSecurity
   expiration: 604800000  # 7天，单位：毫秒
 
 # 文件上传配置
 file:
   upload:
-    # 使用相对路径，基于项目运行目录
-    # 开发环境：项目根目录下的 uploads 文件夹
-    # 生产环境：jar包同级目录下的 uploads 文件夹
-    path: ./uploads
     url-prefix: /files/
-
-# 日志配置
-logging:
-  level:
-    com.river.blog: debug
-    com.river.blog.mapper: debug
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

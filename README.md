@@ -134,7 +134,9 @@
 │   ├── vite.config.ts           # Vite 配置文件
 │   ├── tsconfig.json            # TypeScript 配置
 │   ├── package.json             # 项目依赖配置
-│   └── .env.local               # 环境变量配置
+│   ├── Dockerfile               # 前端 Docker 镜像配置
+│   ├── nginx.conf               # Nginx 配置文件
+│   └── .dockerignore            # Docker 构建忽略文件
 │
 └── backend/                      # 后端项目
     ├── sql/                     # 数据库脚本
@@ -156,7 +158,7 @@
     │   │   │   ├── FileController.java       # 文件控制器
     │   │   │   ├── TagController.java        # 标签控制器
     │   │   │   ├── UserController.java       # 用户控制器
-    │   │   │   └── UtilController.java       # 工具控制器
+    │   │   │   └── UtilController.java       # 工具控制器（含健康检查）
     │   │   ├── dto/             # 数据传输对象
     │   │   │   ├── LoginRequest.java  # 登录请求
     │   │   │   └── LoginResponse.java # 登录响应
@@ -194,10 +196,22 @@
     │       │   ├── BlogTagMapper.xml
     │       │   ├── BlogCommentMapper.xml
     │       │   └── ProjectMapper.xml
-    │       └── application.yml  # 应用配置文件
+    │       ├── application.yml       # 开发环境配置
+    │       └── application-prod.yml  # 生产环境配置
     ├── uploads/                 # 文件上传目录（运行时生成）
     ├── pom.xml                  # Maven 配置文件
-    └── README.md                # 后端说明文档
+    ├── Dockerfile               # 后端 Docker 镜像配置
+    └── .dockerignore            # Docker 构建忽略文件
+│
+├── docker-compose.yml           # Docker Compose 编排配置
+├── .env.example                 # 环境变量模板
+├── deploy.sh                    # Linux/Mac 部署脚本
+├── deploy.ps1                   # Windows PowerShell 部署脚本
+├── DEPLOYMENT.md                # 详细部署文档
+├── QUICK_DEPLOY.md              # 快速部署指南
+├── ARCHITECTURE.md              # 部署架构说明
+├── .gitignore                   # Git 忽略文件
+└── README.md                    # 项目说明文档
 ```
 
 ---
@@ -215,7 +229,12 @@
 - **Maven**: 3.6+
 - **MySQL**: 5.7+
 
-### 安装步骤
+#### 生产部署
+- **Docker**: 20.10+
+- **Docker Compose**: 2.0+
+- **服务器**: Linux (推荐 Ubuntu 20.04+)
+
+### 开发环境安装步骤
 
 #### 1. 克隆项目
 
@@ -329,6 +348,150 @@ npm run preview     # 预览构建结果
 cd backend
 mvn clean package   # 打包为 jar
 ```
+
+---
+
+## 🐳 Docker 部署（推荐）
+
+### 快速部署
+
+项目已包含完整的 Docker 部署配置，可以一键部署到服务器。
+
+#### 1. 上传项目到服务器
+
+```bash
+# 在本地压缩项目
+tar -czf river-blog.tar.gz .
+
+# 上传到服务器
+scp river-blog.tar.gz user@your-server-ip:/home/user/
+
+# SSH 登录服务器
+ssh user@your-server-ip
+
+# 解压
+cd /home/user/
+tar -xzf river-blog.tar.gz
+cd river-blog
+```
+
+#### 2. 配置环境变量
+
+```bash
+# 复制环境变量模板
+cp .env.example .env
+
+# 编辑配置（修改数据库密码和 JWT 密钥）
+vim .env
+```
+
+必须修改的配置：
+```bash
+# 数据库密码（务必修改）
+DB_PASSWORD=your_secure_password
+
+# JWT 密钥（务必修改为强密码）
+JWT_SECRET=your_super_secret_jwt_key_at_least_64_characters_long
+```
+
+#### 3. 执行部署
+
+**Linux/Mac:**
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
+
+**Windows PowerShell:**
+```powershell
+.\deploy.ps1
+```
+
+**手动部署：**
+```bash
+# 构建并启动服务
+docker-compose up -d --build
+
+# 查看服务状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f
+```
+
+#### 4. 访问应用
+
+部署完成后，通过以下地址访问：
+
+- **前端页面**: http://your-server-ip
+- **后端 API**: http://your-server-ip/api
+
+### 部署文件说明
+
+项目包含以下部署文件：
+
+- **docker-compose.yml** - Docker Compose 编排配置
+- **backend/Dockerfile** - 后端 Docker 镜像构建文件
+- **frontend/Dockerfile** - 前端 Docker 镜像构建文件
+- **frontend/nginx.conf** - Nginx 配置文件
+- **backend/application-prod.yml** - 生产环境配置
+- **.env.example** - 环境变量模板
+- **deploy.sh** - Linux/Mac 部署脚本
+- **deploy.ps1** - Windows PowerShell 部署脚本
+- **DEPLOYMENT.md** - 详细部署文档
+- **QUICK_DEPLOY.md** - 快速部署指南
+- **ARCHITECTURE.md** - 部署架构说明
+
+### 服务管理
+
+```bash
+# 查看服务状态
+docker-compose ps
+
+# 查看日志
+docker-compose logs -f           # 所有服务
+docker-compose logs -f backend   # 后端
+docker-compose logs -f frontend  # 前端
+docker-compose logs -f mysql     # 数据库
+
+# 重启服务
+docker-compose restart
+
+# 停止服务
+docker-compose stop
+
+# 启动服务
+docker-compose start
+
+# 停止并删除容器
+docker-compose down
+
+# 更新应用
+docker-compose up -d --build
+```
+
+### 数据备份
+
+```bash
+# 备份数据库
+docker exec river-blog-mysql mysqldump -u root -p RIVER_BLOG > backup_$(date +%Y%m%d).sql
+
+# 备份上传文件
+docker cp river-blog-backend:/app/uploads ./uploads_backup_$(date +%Y%m%d)
+
+# 恢复数据库
+docker exec -i river-blog-mysql mysql -u root -p RIVER_BLOG < backup.sql
+
+# 恢复上传文件
+docker cp ./uploads_backup river-blog-backend:/app/uploads
+```
+
+### 更多详细信息
+
+请查看：
+- **快速部署**: [QUICK_DEPLOY.md](./QUICK_DEPLOY.md)
+- **完整文档**: [DEPLOYMENT.md](./DEPLOYMENT.md)
+- **架构说明**: [ARCHITECTURE.md](./ARCHITECTURE.md)
 
 ---
 

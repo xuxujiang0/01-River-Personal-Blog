@@ -37,6 +37,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // 公开接口
                 .requestMatchers("/auth/**").permitAll()
+                .requestMatchers("/util/**").permitAll()
                 .requestMatchers("/blogs").permitAll()
                 .requestMatchers("/blogs/{id}").permitAll()
                 .requestMatchers("/projects").permitAll()

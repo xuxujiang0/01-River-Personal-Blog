@@ -61,4 +61,26 @@ public class UtilController {
         
         return Result.success(result);
     }
+    
+    /**
+     * 健康检查接口
+     * 访问: GET /api/util/health
+     */
+    @GetMapping("/health")
+    public Result<Map<String, Object>> health() {
+        Map<String, Object> health = new HashMap<>();
+        health.put("status", "UP");
+        health.put("timestamp", System.currentTimeMillis());
+        health.put("service", "river-blog-backend");
+        
+        // 检查数据库连接
+        try {
+            userMapper.selectByUsername("admin");
+            health.put("database", "connected");
+        } catch (Exception e) {
+            health.put("database", "disconnected");
+        }
+        
+        return Result.success(health);
+    }
 }

@@ -31,6 +31,17 @@ Thumbs.db
 
 # Upload files
 backend/uploads/
+uploads/
 
-# Build files
+# Docker & Deployment
+.env
+*.env
+!.env.example
+
+# Logs
+logs/
 *.log
+backend/src/main/resources/application-prod.yml
+script/default.conf
+script/DEPLOYMENT.md
+script/MANUAL_COMMANDS.txt

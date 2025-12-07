@@ -25,7 +25,31 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <mybatis-spring-boot.version>3.0.3</mybatis-spring-boot.version>
         <jjwt.version>0.12.3</jjwt.version>
+        <!-- 默认激活的环境 -->
+        <profiles.active>dev</profiles.active>
     </properties>
+    
+    <!-- Maven 多环境配置 -->
+    <profiles>
+        <!-- 开发环境 -->
+        <profile>
+            <id>dev</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <profiles.active>dev</profiles.active>
+            </properties>
+        </profile>
+        
+        <!-- 生产环境 -->
+        <profile>
+            <id>prod</id>
+            <properties>
+                <profiles.active>prod</profiles.active>
+            </properties>
+        </profile>
+    </profiles>
     
     <dependencies>
         <!-- Spring Boot Web -->
@@ -118,6 +142,28 @@
     </dependencies>
     
     <build>
+        <!-- 资源文件配置 -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <!-- 开启资源过滤 -->
+                <filtering>true</filtering>
+                <excludes>
+                    <!-- 排除各环境配置文件 -->
+                    <exclude>application-*.yml</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <!-- 不过滤，直接复制 -->
+                <filtering>false</filtering>
+                <includes>
+                    <!-- 根据激活的profile包含对应的配置文件 -->
+                    <include>application-${profiles.active}.yml</include>
+                </includes>
+            </resource>
+        </resources>
+        
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
