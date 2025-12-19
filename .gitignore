@@ -45,3 +45,4 @@ backend/src/main/resources/application-prod.yml
 script/default.conf
 script/DEPLOYMENT.md
 script/MANUAL_COMMANDS.txt
+deploy/Dockerfile

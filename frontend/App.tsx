@@ -5,6 +5,7 @@ import { AppProvider } from './store';
 import { Navbar } from './components/Navbar';
 import { AuthModal } from './components/AuthModal';
 import { BackToTop } from './components/BackToTop';
+import { Footer } from './components/Footer';
 import { useToast } from './hooks/useToast';
 import { Home } from './pages/Home';
 import { Blog } from './pages/Blog';
@@ -44,6 +45,9 @@ const AppContent: React.FC = () => {
           <Route path="*" element={<Navigate to={PageRoute.HOME} replace />} />
         </Routes>
       </main>
+
+      {/* Footer */}
+      <Footer />
 
       {/* Global Overlays - Rendered at root to avoid z-index/stacking context issues */}
       <AuthModal />
