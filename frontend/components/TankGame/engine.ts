@@ -4,6 +4,7 @@ import { MapManager, ObstacleType } from './map';
 import { PlayerTank, EnemyTank } from './tank';
 import { Item, ItemType } from './item';
 import { Explosion, HitEffect } from './bullet';
+import { TouchController } from './TouchController';
 
 export class TankGameEngine {
     constructor(canvas, callbacks) {
@@ -27,8 +28,15 @@ export class TankGameEngine {
         this.screenShake = 0;
         this.screenFlash = 0;
         
-        this.input = { keys: {} };
+        this.input = { keys: {}, joystickMove: {x:0, y:0}, joystickAim: {x:0, y:0} };
         
+        this.touchController = new TouchController(
+            this.canvas.parentElement || this.canvas, 
+            this.canvas,
+            () => this.scale || 1,
+            () => this.isPortrait || false
+        );
+
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.handleKeyUp = this.handleKeyUp.bind(this);
         this.handleResize = this.handleResize.bind(this);
@@ -54,11 +62,82 @@ export class TankGameEngine {
     
     handleResize() {
         if (this.canvas.parentElement) {
-            this.canvas.width = this.canvas.parentElement.clientWidth;
-            this.canvas.height = this.canvas.parentElement.clientHeight;
+            const containerWidth = this.canvas.parentElement.clientWidth;
+            const containerHeight = this.canvas.parentElement.clientHeight;
+            
+            // 检测是否为竖屏
+            const isPortrait = containerHeight > containerWidth;
+            this.isPortrait = isPortrait; // 保存状态供 TouchController 使用
+            
+            const borderWidth = 0;
+            const gameW = containerWidth;
+            const gameH = containerHeight;
+            
+            const logicalGameW = isPortrait ? gameH : gameW;
+            const logicalGameH = isPortrait ? gameW : gameH;
+            
+            // 固定逻辑分辨率为 1280x720，保持 16:9 比例
+            const logicalWidth = 1280;
+            const logicalHeight = 720;
+            
+            this.canvas.width = logicalWidth;
+            this.canvas.height = logicalHeight;
+            
+            // 计算缩放系数，确保画面不被拉伸，并在容器内居中（Letterboxing）
+            const scaleX = logicalGameW / logicalWidth;
+            const scaleY = logicalGameH / logicalHeight;
+            const scale = Math.min(scaleX, scaleY);
+            
+            this.scale = scale; // 保存缩放系数供触控转换使用
+            
+            const scaledWidth = logicalWidth * scale;
+            const scaledHeight = logicalHeight * scale;
+            
+            this.canvas.style.width = `${scaledWidth}px`;
+            this.canvas.style.height = `${scaledHeight}px`;
+            
+            // 绝对居中与旋转
+            this.canvas.style.position = 'absolute';
+            
+            if (isPortrait) {
+                this.canvas.style.transform = 'rotate(90deg)';
+                // 旋转后，视觉上的宽是 scaledHeight，高是 scaledWidth
+                // X轴偏移：居中
+                const visualLeft = (containerWidth - scaledHeight) / 2;
+                this.offsetX = visualLeft + scaledHeight/2 - scaledWidth/2;
+                
+                // Y轴偏移：居中
+                const visualTop = (containerHeight - scaledWidth) / 2;
+                this.offsetY = visualTop + scaledWidth/2 - scaledHeight/2;
+            } else {
+                this.canvas.style.transform = 'none';
+                this.offsetX = (containerWidth - scaledWidth) / 2;
+                this.offsetY = (containerHeight - scaledHeight) / 2;
+            }
+            
+            this.canvas.style.left = `${this.offsetX}px`;
+            this.canvas.style.top = `${this.offsetY}px`;
+
+            // 通知 React 层画布尺寸变化，以便定位外部 UI
+            if (this.callbacks.onResize) {
+                // 计算逻辑坐标系下的 canvas 位置
+                const logicalLeft = (logicalGameW - scaledWidth) / 2;
+                const logicalTop = (logicalGameH - scaledHeight) / 2;
+                
+                this.callbacks.onResize({
+                    scaledWidth,
+                    scaledHeight,
+                    logicalLeft,
+                    logicalTop
+                });
+            }
         } else {
-            this.canvas.width = window.innerWidth;
-            this.canvas.height = window.innerHeight;
+            this.canvas.width = 1280;
+            this.canvas.height = 720;
+            this.scale = 1;
+            this.isPortrait = false;
+            this.offsetX = 0;
+            this.offsetY = 0;
         }
     }
     
@@ -186,6 +265,15 @@ export class TankGameEngine {
     update() {
         if (this.gameState !== 'playing') return;
 
+        // 同步触控状态到 input
+        this.input.joystickMove = this.touchController.leftJoystick.vector;
+        this.input.joystickAim = this.touchController.rightJoystick.vector;
+        
+        // 触控射击逻辑
+        if (this.touchController.isShooting && this.player && this.player.active) {
+            this.player.shoot(this.bullets);
+        }
+
         // 道具生成
         this.itemSpawnTimer++;
         if (this.itemSpawnTimer > 120) { // 2秒 @ 60fps (加快生成频率)
@@ -195,7 +283,7 @@ export class TankGameEngine {
 
         // 更新玩家
         if (this.player.active) {
-            this.player.update(this.input, this.canvas.width, this.canvas.height, this.mapManager, this.enemies);
+            this.player.update(this.input, this.canvas.width, this.canvas.height, this.mapManager, this.enemies, this.explosions);
         } else {
             this.setGameState('gameover');
         }
@@ -308,8 +396,14 @@ export class TankGameEngine {
                     const bRect = {x: bullet.x - bullet.radius, y: bullet.y - bullet.radius, width: bullet.radius*2, height: bullet.radius*2};
                     if (Collision.rectRect(bRect, this.player)) {
                         bullet.active = false;
-                        this.player.takeDamage(bullet.damage);
-                        this.hitEffects.push(new HitEffect(bullet.x, bullet.y));
+                        if (!this.player.isArmored) {
+                            this.player.takeDamage(bullet.damage);
+                            this.hitEffects.push(new HitEffect(bullet.x, bullet.y));
+                        } else {
+                            // 无敌状态下子弹弹开特效
+                            this.hitEffects.push(new HitEffect(bullet.x, bullet.y));
+                            SoundManager.playHit();
+                        }
                     }
                 }
             }
@@ -342,7 +436,9 @@ export class TankGameEngine {
             
             if (this.player.active && !exp.hasDamaged.includes(this.player.id)) {
                 if (Collision.circleRect({x: exp.x, y: exp.y, radius: exp.currentRadius}, this.player)) {
-                    this.player.takeDamage(exp.damage);
+                    if (!this.player.isArmored) {
+                        this.player.takeDamage(exp.damage);
+                    }
                     exp.hasDamaged.push(this.player.id);
                 }
             }
@@ -402,6 +498,44 @@ export class TankGameEngine {
             this.ctx.fillStyle = `rgba(255, 255, 255, ${this.screenFlash})`;
             this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
         }
+
+        // 绘制虚拟摇杆 (UI层，不受屏幕震动影响)
+        if (this.gameState === 'playing') {
+            this.drawJoysticks();
+        }
+    }
+    
+    drawJoysticks() {
+        const drawJoystick = (joystick, color) => {
+            if (!joystick.active) return;
+            
+            this.ctx.save();
+            
+            // 绘制底座
+            this.ctx.beginPath();
+            this.ctx.arc(joystick.origin.x, joystick.origin.y, 60, 0, Math.PI * 2);
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+            this.ctx.fill();
+            this.ctx.lineWidth = 2;
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            this.ctx.stroke();
+            
+            // 绘制摇杆头
+            this.ctx.beginPath();
+            this.ctx.arc(joystick.current.x, joystick.current.y, 25, 0, Math.PI * 2);
+            this.ctx.fillStyle = color;
+            this.ctx.fill();
+            
+            // 摇杆头发光
+            this.ctx.shadowColor = color;
+            this.ctx.shadowBlur = 15;
+            this.ctx.fill();
+            
+            this.ctx.restore();
+        };
+
+        drawJoystick(this.touchController.leftJoystick, 'rgba(76, 175, 80, 0.6)'); // 绿色移动
+        drawJoystick(this.touchController.rightJoystick, 'rgba(244, 67, 54, 0.6)'); // 红色射击
     }
     
     drawGrid() {
@@ -409,14 +543,14 @@ export class TankGameEngine {
         this.ctx.lineWidth = 1;
         const gridSize = 50;
         
-        for (let x = 0; x < this.canvas.width; x += gridSize) {
+        for (let x = gridSize; x < this.canvas.width; x += gridSize) {
             this.ctx.beginPath();
             this.ctx.moveTo(x, 0);
             this.ctx.lineTo(x, this.canvas.height);
             this.ctx.stroke();
         }
         
-        for (let y = 0; y < this.canvas.height; y += gridSize) {
+        for (let y = gridSize; y < this.canvas.height; y += gridSize) {
             this.ctx.beginPath();
             this.ctx.moveTo(0, y);
             this.ctx.lineTo(this.canvas.width, y);
@@ -435,6 +569,9 @@ export class TankGameEngine {
         window.removeEventListener('keydown', this.handleKeyDown);
         window.removeEventListener('keyup', this.handleKeyUp);
         window.removeEventListener('resize', this.handleResize);
+        if (this.touchController) {
+            this.touchController.destroy();
+        }
         this.setGameState('start');
     }
 }

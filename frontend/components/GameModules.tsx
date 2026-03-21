@@ -283,19 +283,18 @@ const GameCardWrapper: React.FC<{
     <>
       {/* Normal State: The Card Placeholder */}
       <div 
-        className="relative h-64 rounded-2xl bg-slate-800/50 border border-slate-700/50 overflow-hidden transition-all duration-300 hover:bg-slate-800 hover:-translate-y-1 hover:border-slate-600 group"
+        onClick={() => setIsExpanded(true)}
+        className="relative h-64 rounded-2xl bg-slate-800/50 border border-slate-700/50 overflow-hidden transition-all duration-300 hover:bg-slate-800 hover:-translate-y-1 hover:border-slate-600 group cursor-pointer"
       >
-        <div className="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity">
+        <div className="w-full h-full opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none">
           {children({ isExpanded: false })}
         </div>
 
-        <button 
-          onClick={() => setIsExpanded(true)}
-          className="absolute top-2 right-2 p-2 rounded-full bg-black/50 hover:bg-indigo-600 text-slate-300 hover:text-white transition-all z-30"
-          title="Maximize"
+        <div 
+          className="absolute top-2 right-2 p-2 rounded-full bg-black/50 group-hover:bg-indigo-600 text-slate-300 group-hover:text-white transition-all z-30"
         >
           <Maximize2 size={16} />
-        </button>
+        </div>
 
         <div className="absolute top-3 right-10 text-[10px] uppercase font-mono text-slate-500 bg-black/40 px-2 py-1 rounded pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
           Click to Play
@@ -305,7 +304,7 @@ const GameCardWrapper: React.FC<{
       {/* Expanded State: Portal to Body */}
       {isExpanded && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 backdrop-blur-md animate-fadeIn">
-          <div className="w-full h-full md:w-[95%] md:h-[90%] relative bg-[#050505] md:rounded-2xl overflow-hidden border border-gray-800 shadow-2xl">
+          <div className="w-full h-full md:w-[95%] md:h-[90%] relative bg-[#050505] md:rounded-2xl overflow-hidden shadow-2xl">
             {/* Close Button */}
             <button 
               onClick={() => setIsExpanded(false)}

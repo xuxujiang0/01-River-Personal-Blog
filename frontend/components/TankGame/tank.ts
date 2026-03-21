@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { SoundManager, Collision, randomRange } from './utils';
-import { Bullet } from './bullet';
+import { Bullet, Explosion } from './bullet';
 import { ItemType } from './item';
 
 export class Tank {
@@ -10,7 +10,8 @@ export class Tank {
         this.width = width;
         this.height = height;
         this.color = color;
-        this.angle = 0; // 弧度
+        this.angle = 0; // 底盘弧度
+        this.turretAngle = 0; // 炮塔弧度
         this.speed = 3;
         this.hp = hp;
         this.maxHp = hp;
@@ -26,6 +27,8 @@ export class Tank {
         this.explosiveAmmoCount = 0;
         this.isInvisible = false;
         this.invisibleTimer = 0;
+        this.isArmored = false;
+        this.armorTimer = 0;
 
         // 动画相关
         this.trackOffset = 0;
@@ -50,12 +53,18 @@ export class Tank {
                 this.isInvisible = false;
             }
         }
+
+        if (this.isArmored) {
+            this.armorTimer--;
+            if (this.armorTimer <= 0) {
+                this.isArmored = false;
+            }
+        }
     }
 
     draw(ctx) {
         ctx.save();
         ctx.translate(this.x + this.width / 2, this.y + this.height / 2);
-        ctx.rotate(this.angle);
         
         if (this.isInvisible) {
             ctx.globalAlpha = 0.4;
@@ -72,6 +81,10 @@ export class Tank {
         ctx.shadowOffsetX = 4;
         ctx.shadowOffsetY = 4;
 
+        // --- 绘制底盘 (受 this.angle 影响) ---
+        ctx.save();
+        ctx.rotate(this.angle);
+
         // 1. 履带 (更细致)
         const trackColor = '#2c2c2c';
         const trackDetailColor = '#1a1a1a';
@@ -85,7 +98,12 @@ export class Tank {
         // 梯形车身
         // 渐变色
         let bodyGrad = ctx.createLinearGradient(-w/2, 0, w/2, 0);
-        if (isPlayer) {
+        if (this.isArmored) {
+            // 无敌金身
+            bodyGrad.addColorStop(0, '#B8860B');
+            bodyGrad.addColorStop(0.5, '#FFD700');
+            bodyGrad.addColorStop(1, '#B8860B');
+        } else if (isPlayer) {
             // 现代迷彩绿
             bodyGrad.addColorStop(0, '#4b5320');
             bodyGrad.addColorStop(0.5, '#6b8e23');
@@ -133,11 +151,20 @@ export class Tank {
         ctx.fillRect(-w/2 + 6, -h/6 + 6, 4, 2);
         ctx.fillRect(-w/2 + 6, -h/6 + 10, 4, 2);
 
+        ctx.restore(); // 结束底盘绘制
+
         ctx.shadowColor = 'transparent'; // 重置阴影
+
+        // --- 绘制炮塔 (受 this.turretAngle 影响) ---
+        ctx.save();
+        ctx.rotate(this.turretAngle);
 
         // 3. 炮塔
         let turretGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, w/3);
-        if (isPlayer) {
+        if (this.isArmored) {
+            turretGrad.addColorStop(0, '#FFF8DC');
+            turretGrad.addColorStop(1, '#DAA520');
+        } else if (isPlayer) {
             turretGrad.addColorStop(0, '#556b2f');
             turretGrad.addColorStop(1, '#2f4f4f');
         } else if (isBoss) {
@@ -181,8 +208,43 @@ export class Tank {
         ctx.fillStyle = '#111';
         ctx.fillRect(barrelLen - 4, -barrelWidth/2 - 2, 6, barrelWidth + 4);
 
-        // 5. 无敌护盾特效
-        if (isPlayer && this.hp <= 1) {
+        ctx.restore(); // 结束炮塔绘制
+
+        // 5. 无敌护盾特效 (动态金色能量护盾)
+        if (this.isArmored) {
+            const time = Date.now() / 150;
+            // 正弦函数动态调整发光半径和透明度，实现呼吸效果
+            const pulse = Math.sin(time) * 0.2 + 0.8; // 0.6 to 1.0
+            const shieldRadius = w * 0.9 + Math.sin(time * 2) * 2;
+            
+            ctx.save();
+            
+            // 强烈的金色发光效果
+            ctx.shadowColor = '#FFD700';
+            ctx.shadowBlur = 25 * pulse;
+            
+            // 半透明金色径向渐变
+            const shieldGrad = ctx.createRadialGradient(0, 0, w * 0.4, 0, 0, shieldRadius);
+            shieldGrad.addColorStop(0, `rgba(255, 215, 0, 0)`);
+            shieldGrad.addColorStop(0.7, `rgba(255, 215, 0, ${0.2 * pulse})`);
+            shieldGrad.addColorStop(0.9, `rgba(255, 215, 0, ${0.5 * pulse})`);
+            shieldGrad.addColorStop(1, `rgba(255, 255, 255, ${0.8 * pulse})`); // 边缘高亮白金
+            
+            ctx.fillStyle = shieldGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, shieldRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 护盾边缘能量流转线
+            ctx.strokeStyle = `rgba(255, 215, 0, ${0.8 * pulse})`;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([15, 10]);
+            ctx.lineDashOffset = -time * 20; // 能量线流动
+            ctx.stroke();
+            
+            ctx.restore();
+        } else if (isPlayer && this.hp <= 1) {
+            // 原有的残血护盾特效 (改为金色)
             const time = Date.now() / 200;
             
             // 旋转光圈
@@ -190,7 +252,7 @@ export class Tank {
             ctx.rotate(time);
             ctx.beginPath();
             ctx.arc(0, 0, w * 0.8, 0, Math.PI * 2);
-            ctx.strokeStyle = '#00FFFF';
+            ctx.strokeStyle = '#FFD700';
             ctx.lineWidth = 2;
             ctx.setLineDash([10, 10]);
             ctx.stroke();
@@ -201,7 +263,7 @@ export class Tank {
             ctx.rotate(-time * 1.5);
             ctx.beginPath();
             ctx.arc(0, 0, w * 0.7, 0, Math.PI * 2);
-            ctx.strokeStyle = '#00BFFF';
+            ctx.strokeStyle = '#FFA500';
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 15]);
             ctx.stroke();
@@ -210,7 +272,7 @@ export class Tank {
             // 内部能量场
             ctx.beginPath();
             ctx.arc(0, 0, w * 0.6, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(0, 255, 255, ${0.2 + Math.sin(time * 5) * 0.1})`;
+            ctx.fillStyle = `rgba(255, 215, 0, ${0.2 + Math.sin(time * 5) * 0.1})`;
             ctx.fill();
         }
 
@@ -218,6 +280,77 @@ export class Tank {
 
         // 血条
         this.drawHealthBar(ctx);
+
+        // 玩家专属红色指示箭头
+        if (isPlayer) {
+            this.drawPlayerIndicator(ctx);
+        }
+    }
+
+    drawPlayerIndicator(ctx) {
+        const time = Date.now() / 1000;
+        ctx.save();
+        
+        // 移动到坦克正上方，并添加上下浮动动画
+        const floatY = -this.height * 1.2 + Math.sin(time * 5) * 8;
+        ctx.translate(this.x + this.width / 2, this.y + floatY);
+        
+        // 缩放与透明度动画
+        const scale = 1 + Math.sin(time * 3) * 0.15;
+        ctx.scale(scale, scale);
+        ctx.globalAlpha = 0.7 + Math.sin(time * 4) * 0.3;
+        
+        // 3D旋转模拟 (绕Y轴翻转)
+        ctx.scale(Math.cos(time * 4), 1);
+        
+        // 发光与阴影效果
+        ctx.shadowColor = '#FF0000';
+        ctx.shadowBlur = 15 + Math.sin(time * 5) * 5;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 5;
+        
+        // 颜色渐变效果
+        const grad = ctx.createLinearGradient(0, -15, 0, 15);
+        grad.addColorStop(0, '#FF6347'); // 亮红
+        grad.addColorStop(0.5, '#FF0000'); // 纯红
+        grad.addColorStop(1, '#8B0000'); // 暗红
+        
+        ctx.fillStyle = grad;
+        ctx.strokeStyle = '#FFA07A';
+        ctx.lineWidth = 2;
+        
+        // 绘制立体箭头 (向下指)
+        ctx.beginPath();
+        ctx.moveTo(0, 15); // 顶点
+        ctx.lineTo(-10, 0); // 左翼
+        ctx.lineTo(-4, 0); // 左内折
+        ctx.lineTo(-4, -15); // 左上
+        ctx.lineTo(4, -15); // 右上
+        ctx.lineTo(4, 0); // 右内折
+        ctx.lineTo(10, 0); // 右翼
+        ctx.closePath();
+        
+        ctx.fill();
+        ctx.stroke();
+        
+        // 粒子效果 (向上飘散的小光点)
+        ctx.shadowBlur = 5; // 粒子微弱发光
+        ctx.shadowColor = '#FFA07A';
+        for (let i = 0; i < 3; i++) {
+            const pTime = time * 2 + i * 2;
+            const px = Math.sin(pTime * 3) * 12;
+            // 粒子向上移动，周期循环
+            const cycle = (time * 15 + i * 5) % 20;
+            const py = -cycle; 
+            const pAlpha = Math.max(0, 1 - cycle / 20);
+            
+            ctx.fillStyle = `rgba(255, 100, 100, ${pAlpha})`;
+            ctx.beginPath();
+            ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
     }
 
     drawTrack(ctx, x, y, w, h, color, detailColor) {
@@ -264,8 +397,8 @@ export class Tank {
             const centerX = this.x + this.width / 2;
             const centerY = this.y + this.height / 2;
             // 炮口位置
-            const muzzleX = centerX + Math.cos(this.angle) * (this.width / 1.2);
-            const muzzleY = centerY + Math.sin(this.angle) * (this.width / 1.2);
+            const muzzleX = centerX + Math.cos(this.turretAngle) * (this.width / 1.2);
+            const muzzleY = centerY + Math.sin(this.turretAngle) * (this.width / 1.2);
             
             let isExplosive = false;
             if (this.hasExplosiveAmmo) {
@@ -275,9 +408,11 @@ export class Tank {
             }
 
             const owner = this instanceof PlayerTank ? 'player' : 'enemy';
-            bullets.push(new Bullet(muzzleX, muzzleY, this.angle, owner, isExplosive));
+            bullets.push(new Bullet(muzzleX, muzzleY, this.turretAngle, owner, isExplosive));
             this.cooldown = this.maxCooldown;
-            SoundManager.playShoot();
+            if (owner === 'enemy') {
+                SoundManager.playShoot();
+            }
         }
     }
 
@@ -311,16 +446,30 @@ export class PlayerTank extends Tank {
         this.speed = 4;
     }
 
-    update(input, canvasWidth, canvasHeight, mapManager, enemies) {
+    update(input, canvasWidth, canvasHeight, mapManager, enemies, explosions) {
         super.update(canvasWidth, canvasHeight);
         
         let dx = 0;
         let dy = 0;
 
-        if (input.keys['w'] || input.keys['ArrowUp']) dy = -1;
-        if (input.keys['s'] || input.keys['ArrowDown']) dy = 1;
-        if (input.keys['a'] || input.keys['ArrowLeft']) dx = -1;
-        if (input.keys['d'] || input.keys['ArrowRight']) dx = 1;
+        // 支持摇杆输入
+        if (input.joystickMove && (input.joystickMove.x !== 0 || input.joystickMove.y !== 0)) {
+            dx = input.joystickMove.x;
+            dy = input.joystickMove.y;
+        } else {
+            // 键盘输入回退
+            if (input.keys['w'] || input.keys['ArrowUp']) dy = -1;
+            if (input.keys['s'] || input.keys['ArrowDown']) dy = 1;
+            if (input.keys['a'] || input.keys['ArrowLeft']) dx = -1;
+            if (input.keys['d'] || input.keys['ArrowRight']) dx = 1;
+            
+            // 键盘输入归一化
+            if (dx !== 0 && dy !== 0) {
+                const length = Math.sqrt(dx * dx + dy * dy);
+                dx /= length;
+                dy /= length;
+            }
+        }
 
         if (dx !== 0 || dy !== 0) {
             const nextX = this.x + dx * this.speed;
@@ -330,18 +479,49 @@ export class PlayerTank extends Tank {
             let canMove = true;
             const rect = {x: nextX, y: nextY, width: this.width, height: this.height};
 
-            if (mapManager) {
-                if (mapManager.checkCollision(rect).length > 0) {
-                    canMove = false;
+            if (this.isArmored) {
+                // 无敌状态：摧毁墙壁和敌人
+                if (mapManager) {
+                    const hitObstacles = mapManager.checkCollision(rect);
+                    hitObstacles.forEach(obs => {
+                        // 摧毁土墙和铁墙
+                        if (obs.type === 'wall' || obs.type === 'steel') {
+                            obs.active = false;
+                            if (explosions) {
+                                explosions.push(new Explosion(obs.x + obs.width/2, obs.y + obs.height/2, 40, 15, 'player'));
+                                SoundManager.playExplosion();
+                            }
+                        }
+                    });
                 }
-            }
-
-            // 检查与敌人的碰撞
-            if (canMove && enemies) {
-                for (const enemy of enemies) {
-                    if (enemy.active && Collision.rectRect(rect, enemy)) {
+                if (enemies) {
+                    enemies.forEach(enemy => {
+                        if (enemy.active && Collision.rectRect(rect, enemy)) {
+                            enemy.takeDamage(9999); // 秒杀敌人
+                            if (explosions) {
+                                explosions.push(new Explosion(enemy.x + enemy.width/2, enemy.y + enemy.height/2, 60, 20, 'player'));
+                                SoundManager.playExplosion();
+                            }
+                        }
+                    });
+                }
+                // 无敌状态下始终可以移动（因为障碍物被摧毁了）
+                canMove = true;
+            } else {
+                // 正常碰撞检测
+                if (mapManager) {
+                    if (mapManager.checkCollision(rect).length > 0) {
                         canMove = false;
-                        break;
+                    }
+                }
+
+                // 检查与敌人的碰撞
+                if (canMove && enemies) {
+                    for (const enemy of enemies) {
+                        if (enemy.active && Collision.rectRect(rect, enemy)) {
+                            canMove = false;
+                            break;
+                        }
                     }
                 }
             }
@@ -349,10 +529,21 @@ export class PlayerTank extends Tank {
             if (canMove) {
                 this.x = nextX;
                 this.y = nextY;
-                this.trackOffset += this.speed;
+                this.trackOffset += this.speed * Math.sqrt(dx*dx + dy*dy);
             }
 
-            this.angle = Math.atan2(dy, dx);
+            // 平滑插值底盘角度
+            const targetAngle = Math.atan2(dy, dx);
+            // 简单直接赋值，或者可以做平滑插值
+            this.angle = targetAngle;
+        }
+
+        // 炮塔瞄准逻辑
+        if (input.joystickAim && (input.joystickAim.x !== 0 || input.joystickAim.y !== 0)) {
+            this.turretAngle = Math.atan2(input.joystickAim.y, input.joystickAim.x);
+        } else {
+            // 如果没有瞄准输入，炮塔跟随底盘
+            this.turretAngle = this.angle;
         }
 
         // 边界限制
@@ -383,6 +574,10 @@ export class PlayerTank extends Tank {
                 break;
             case ItemType.HEAL:
                 this.hp = Math.min(this.hp + 50, this.maxHp);
+                break;
+            case ItemType.ARMOR:
+                this.isArmored = true;
+                this.armorTimer = 600; // 10秒无敌
                 break;
         }
     }
@@ -426,10 +621,12 @@ export class EnemyTank extends Tank {
             if (dist < detectionRange) {
                 chasing = true;
                 // 瞄准玩家
-                this.angle = Math.atan2(dy, dx);
+                const targetAngle = Math.atan2(dy, dx);
+                this.turretAngle = targetAngle;
 
                 // 移动逻辑
                 if (dist > 100) { // 保持一定距离
+                    this.angle = targetAngle; // 底盘也朝向玩家
                     nextX += Math.cos(this.angle) * this.speed;
                     nextY += Math.sin(this.angle) * this.speed;
                     moving = true;
@@ -449,6 +646,7 @@ export class EnemyTank extends Tank {
                 this.moveDir.x = Math.cos(angle);
                 this.moveDir.y = Math.sin(angle);
                 this.angle = angle;
+                this.turretAngle = angle;
             }
             
             nextX += this.moveDir.x * this.speed;

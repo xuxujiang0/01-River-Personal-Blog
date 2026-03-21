@@ -32,8 +32,8 @@ export const SoundManager = {
     },
 
     playShoot: function() {
-        // 射击音效：高频快速衰减
-        this.playTone(800, 'square', 0.1, 0.1);
+        // 射击音效：高频快速衰减，降低音量以提供更舒适的体验
+        this.playTone(800, 'square', 0.1, 0.025);
     },
 
     playHit: function() {

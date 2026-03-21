@@ -16,6 +16,20 @@ export class Obstacle {
         this.type = type;
         this.active = true;
         this.hp = type === ObstacleType.WALL ? 20 : 9999;
+        
+        // 预生成草丛叶片数据，避免每帧随机导致闪烁
+        if (type === ObstacleType.GRASS) {
+            this.grassBlades = [];
+            for(let i=0; i<25; i++) {
+                this.grassBlades.push({
+                    x: Math.random() * this.width,
+                    y: Math.random() * this.height,
+                    height: 8 + Math.random() * 12,
+                    angle: (Math.random() - 0.5) * 0.8,
+                    color: `rgba(${20 + Math.random()*30}, ${100 + Math.random()*60}, ${20 + Math.random()*30}, 0.85)`
+                });
+            }
+        }
     }
 
     draw(ctx) {
@@ -99,23 +113,52 @@ export class Obstacle {
             ctx.fill();
 
         } else if (this.type === ObstacleType.GRASS) {
-            // 草丛纹理 - 更自然
-            ctx.fillStyle = '#228B22';
-            // 绘制多层草叶
-            for(let i=0; i<15; i++) {
-                let gx = Math.random() * 30;
-                let gy = Math.random() * 30 + 10;
-                
-                ctx.beginPath();
-                ctx.moveTo(gx, gy);
-                // 贝塞尔曲线画叶子
-                ctx.quadraticCurveTo(gx - 5, gy - 10, gx + (Math.random()-0.5)*20, gy - 15);
-                ctx.quadraticCurveTo(gx + 5, gy - 10, gx + 10, gy);
-                ctx.fill();
-            }
-            // 底色半透明
-            ctx.fillStyle = 'rgba(34, 139, 34, 0.3)'; 
+            const time = Date.now() / 1000;
+            
+            // 整体透明度变化动画
+            const globalAlpha = 0.8 + Math.sin(time * 2 + this.x) * 0.2;
+            ctx.globalAlpha = globalAlpha;
+
+            // 草丛纹理 - 细腻渐变与光影 (颜色渐变动画)
+            const grad = ctx.createLinearGradient(0, 0, this.width, this.height);
+            // 颜色随时间微调，产生呼吸感
+            const rOffset = Math.sin(time * 1.5 + this.y) * 15;
+            grad.addColorStop(0, `rgba(${34 + rOffset}, 139, 34, 0.4)`);
+            grad.addColorStop(0.5, `rgba(46, ${139 + rOffset}, 87, 0.5)`);
+            grad.addColorStop(1, `rgba(0, 100, 0, 0.6)`);
+            ctx.fillStyle = grad;
             ctx.fillRect(0, 0, this.width, this.height);
+
+            // 绘制细腻的草叶线条 (飘动效果)
+            if (this.grassBlades) {
+                this.grassBlades.forEach(blade => {
+                    ctx.save();
+                    ctx.translate(blade.x, blade.y);
+                    
+                    // 飘动效果：基础角度 + 随时间变化的正弦波偏移
+                    const sway = Math.sin(time * 3 + blade.x + blade.y) * 0.3;
+                    ctx.rotate(blade.angle + sway);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    // 绘制尖锐的草叶
+                    ctx.quadraticCurveTo(3, -blade.height/2, 0, -blade.height);
+                    ctx.quadraticCurveTo(-3, -blade.height/2, 0, 0);
+                    
+                    ctx.fillStyle = blade.color;
+                    ctx.fill();
+                    ctx.restore();
+                });
+            }
+            
+            // 添加斑驳的光影质感 (简单的半透明高光点，随时间闪烁)
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.05 + Math.sin(time * 4 + this.x) * 0.04})`;
+            ctx.beginPath();
+            ctx.arc(this.width * 0.3, this.height * 0.3, 8, 0, Math.PI * 2);
+            ctx.arc(this.width * 0.7, this.height * 0.6, 12, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.globalAlpha = 1.0; // 恢复透明度
         }
 
         ctx.restore();
@@ -135,12 +178,6 @@ export class MapManager {
         // 简单的随机生成算法，保留中间区域给玩家
         for (let c = 0; c < cols; c++) {
             for (let r = 0; r < rows; r++) {
-                // 边缘围墙 (铁墙)
-                if (c === 0 || c === cols - 1 || r === 0 || r === rows - 1) {
-                    this.obstacles.push(new Obstacle(c * 40, r * 40, ObstacleType.STEEL));
-                    continue;
-                }
-
                 // 玩家出生点附近留空
                 const centerX = Math.floor(cols / 2);
                 const centerY = Math.floor(rows / 2);

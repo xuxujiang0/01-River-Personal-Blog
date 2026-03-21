@@ -28,11 +28,45 @@ interface TankGameProps {
 }
 
 export const TankGame: React.FC<TankGameProps> = ({ isExpanded }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<TankGameEngine | null>(null);
   
   const [gameState, setGameState] = useState<'start' | 'playing' | 'gameover' | 'levelup'>('start');
   const [stats, setStats] = useState({ level: 1, enemies: 0, hp: 100 });
+  const [uiStyle, setUiStyle] = useState<React.CSSProperties>({ width: '100%', height: '100%', left: 0, top: 0 });
+  const [canvasLayout, setCanvasLayout] = useState({ scaledWidth: 1280, scaledHeight: 720, logicalLeft: 0, logicalTop: 0 });
+
+  useEffect(() => {
+    const updateUiLayout = () => {
+      if (containerRef.current) {
+        const { clientWidth, clientHeight } = containerRef.current;
+        const isPortrait = clientHeight > clientWidth;
+        
+        if (isPortrait) {
+          setUiStyle({
+            transform: 'rotate(90deg)',
+            width: `${clientHeight}px`,
+            height: `${clientWidth}px`,
+            left: `${(clientWidth - clientHeight) / 2}px`,
+            top: `${(clientHeight - clientWidth) / 2}px`,
+          });
+        } else {
+          setUiStyle({
+            transform: 'none',
+            width: '100%',
+            height: '100%',
+            left: 0,
+            top: 0,
+          });
+        }
+      }
+    };
+
+    updateUiLayout();
+    window.addEventListener('resize', updateUiLayout);
+    return () => window.removeEventListener('resize', updateUiLayout);
+  }, [isExpanded]);
 
   useEffect(() => {
     if (!isExpanded) {
@@ -47,7 +81,8 @@ export const TankGame: React.FC<TankGameProps> = ({ isExpanded }) => {
     if (canvasRef.current && !engineRef.current) {
       engineRef.current = new TankGameEngine(canvasRef.current, {
         onStateChange: (state: any) => setGameState(state),
-        onStatsChange: (newStats: any) => setStats(newStats)
+        onStatsChange: (newStats: any) => setStats(newStats),
+        onResize: (layout: any) => setCanvasLayout(layout)
       });
       // We don't auto-start, wait for user to click start
     }
@@ -60,29 +95,31 @@ export const TankGame: React.FC<TankGameProps> = ({ isExpanded }) => {
     };
   }, [isExpanded]);
 
-  const handleStart = () => {
+  const handleStart = async () => {
+    try {
+      if (containerRef.current && !document.fullscreenElement) {
+        await containerRef.current.requestFullscreen();
+      }
+    } catch (err) {
+      console.error("Error attempting to enable fullscreen:", err);
+    }
     if (engineRef.current) {
       engineRef.current.initGame();
     }
   };
 
-  const simulateKeyDown = (key: string) => {
-    if (engineRef.current && gameState === 'playing') {
-      engineRef.current.input.keys[key] = true;
-      if (key === ' ' && engineRef.current.player && engineRef.current.player.active) {
-        engineRef.current.player.shoot(engineRef.current.bullets);
-      }
-    }
-  };
-
-  const simulateKeyUp = (key: string) => {
-    if (engineRef.current) {
-      engineRef.current.input.keys[key] = false;
-    }
-  };
-
   return (
-    <div className="w-full h-full relative bg-[#050505] flex flex-col items-center justify-center select-none overflow-hidden">
+    <div 
+      ref={containerRef}
+      className="tank-game-container w-full h-full relative bg-[#050505] flex flex-col items-center justify-center select-none overflow-hidden" 
+      style={{ 
+        touchAction: 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+        WebkitTouchCallout: 'none',
+        overscrollBehavior: 'none'
+      }}
+    >
       {/* Title State (Not Expanded) */}
       {!isExpanded && (
         <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
@@ -98,110 +135,76 @@ export const TankGame: React.FC<TankGameProps> = ({ isExpanded }) => {
           {/* Canvas */}
           <canvas 
             ref={canvasRef} 
-            className="block bg-black w-full h-full"
+            className="block bg-black"
+            style={{ 
+              touchAction: 'none',
+              boxSizing: 'content-box'
+            }}
           />
 
           {/* UI Layer */}
-          <div className="absolute top-0 left-0 w-full h-full pointer-events-none flex flex-col justify-between">
-            
-            {/* Score Board */}
+          <div 
+            className="absolute pointer-events-none"
+            style={uiStyle}
+          >
+            {/* 外部状态栏 (位于屏幕底部边界上，完全左对齐) */}
             {(gameState === 'playing' || gameState === 'levelup') && (
-              <div className="p-4 text-white text-lg md:text-xl font-bold drop-shadow-md z-10">
-                关卡: <span className="text-yellow-400">{stats.level}</span> | 
-                敌军剩余: <span className="text-red-400">{stats.enemies}</span> | 
-                生命: <span className="text-green-400">{stats.hp}</span>
+              <div 
+                className="absolute flex justify-start items-center px-4 py-2 gap-6"
+                style={{ 
+                  bottom: 0, 
+                  left: 0, 
+                  width: '100%',
+                  background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)'
+                }}
+              >
+                <div className="text-white text-sm md:text-base font-bold drop-shadow-md">
+                  关卡: <span className="text-yellow-400">{stats.level}</span>
+                </div>
+                <div className="text-white text-sm md:text-base font-bold drop-shadow-md">
+                  敌军剩余: <span className="text-red-400">{stats.enemies}</span>
+                </div>
+                <div className="text-white text-sm md:text-base font-bold drop-shadow-md">
+                  生命: <span className="text-green-400">{stats.hp}</span>
+                </div>
               </div>
             )}
 
             {/* Start Screen */}
-            {gameState === 'start' && (
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center text-white bg-black/80 p-8 md:p-10 rounded-xl border-2 border-green-500 pointer-events-auto shadow-[0_0_30px_rgba(74,222,128,0.3)]">
-                <TankIcon size={64} className="text-green-500 mb-6 mx-auto" />
-                <h1 className="text-4xl md:text-5xl font-bold text-green-500 mb-4 tracking-widest uppercase">坦克大战</h1>
-                <p className="text-slate-300 mb-8 text-sm md:text-base">WASD 或 方向键移动，空格键射击</p>
-                <button 
-                  onClick={handleStart}
-                  className="px-8 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded transition-colors text-lg"
-                >
-                  开始游戏
-                </button>
-              </div>
-            )}
-
-            {/* Game Over Screen */}
-            {gameState === 'gameover' && (
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center text-white bg-black/90 p-8 md:p-10 rounded-xl border-2 border-red-500 pointer-events-auto shadow-[0_0_30px_rgba(239,68,68,0.4)]">
-                <h1 className="text-4xl md:text-5xl font-bold text-red-500 mb-8 tracking-widest">游戏结束</h1>
-                <button 
-                  onClick={handleStart}
-                  className="px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded transition-colors text-lg"
-                >
-                  重新开始
-                </button>
-              </div>
-            )}
-
-            {/* Level Up Screen */}
-            {gameState === 'levelup' && (
-              <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center text-white bg-black/80 p-8 md:p-10 rounded-xl border-2 border-yellow-500 pointer-events-auto shadow-[0_0_30px_rgba(234,179,8,0.3)] animate-pulse">
-                <h1 className="text-4xl md:text-5xl font-bold text-yellow-500 mb-4 tracking-widest">关卡完成!</h1>
-                <p className="text-slate-300 text-lg">下一关即将开始...</p>
-              </div>
-            )}
-
-            {/* Mobile Controls */}
-            {gameState === 'playing' && (
-              <div className="p-4 flex justify-between items-end pointer-events-auto md:hidden opacity-70 hover:opacity-100 transition-opacity">
-                {/* D-Pad */}
-                <div className="grid grid-cols-3 gap-2">
-                  <div></div>
+              {gameState === 'start' && (
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center text-white bg-black/80 p-8 md:p-10 rounded-xl border-2 border-green-500 pointer-events-auto shadow-[0_0_30px_rgba(74,222,128,0.3)]">
+                  <TankIcon size={64} className="text-green-500 mb-6 mx-auto" />
+                  <h1 className="text-4xl md:text-5xl font-bold text-green-500 mb-4 tracking-widest uppercase">坦克大战</h1>
+                  <p className="text-slate-300 mb-8 text-sm md:text-base">WASD 或 方向键移动，空格键射击<br/>移动端：左半屏移动，右半屏瞄准射击</p>
                   <button 
-                    onPointerDown={(e) => { e.preventDefault(); simulateKeyDown('w'); }}
-                    onPointerUp={(e) => { e.preventDefault(); simulateKeyUp('w'); }}
-                    onPointerLeave={(e) => { e.preventDefault(); simulateKeyUp('w'); }}
-                    className="w-14 h-14 bg-slate-800/80 rounded-lg flex items-center justify-center active:bg-green-500 active:text-black transition-colors text-white border border-slate-600"
+                    onClick={handleStart}
+                    className="px-8 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded transition-colors text-lg"
                   >
-                    <ChevronUp size={28} />
-                  </button>
-                  <div></div>
-                  <button 
-                    onPointerDown={(e) => { e.preventDefault(); simulateKeyDown('a'); }}
-                    onPointerUp={(e) => { e.preventDefault(); simulateKeyUp('a'); }}
-                    onPointerLeave={(e) => { e.preventDefault(); simulateKeyUp('a'); }}
-                    className="w-14 h-14 bg-slate-800/80 rounded-lg flex items-center justify-center active:bg-green-500 active:text-black transition-colors text-white border border-slate-600"
-                  >
-                    <ChevronLeft size={28} />
-                  </button>
-                  <button 
-                    onPointerDown={(e) => { e.preventDefault(); simulateKeyDown('s'); }}
-                    onPointerUp={(e) => { e.preventDefault(); simulateKeyUp('s'); }}
-                    onPointerLeave={(e) => { e.preventDefault(); simulateKeyUp('s'); }}
-                    className="w-14 h-14 bg-slate-800/80 rounded-lg flex items-center justify-center active:bg-green-500 active:text-black transition-colors text-white border border-slate-600"
-                  >
-                    <ChevronDown size={28} />
-                  </button>
-                  <button 
-                    onPointerDown={(e) => { e.preventDefault(); simulateKeyDown('d'); }}
-                    onPointerUp={(e) => { e.preventDefault(); simulateKeyUp('d'); }}
-                    onPointerLeave={(e) => { e.preventDefault(); simulateKeyUp('d'); }}
-                    className="w-14 h-14 bg-slate-800/80 rounded-lg flex items-center justify-center active:bg-green-500 active:text-black transition-colors text-white border border-slate-600"
-                  >
-                    <ChevronRight size={28} />
+                    开始游戏
                   </button>
                 </div>
+              )}
 
-                {/* Shoot Button */}
-                <button 
-                  onPointerDown={(e) => { e.preventDefault(); simulateKeyDown(' '); }}
-                  onPointerUp={(e) => { e.preventDefault(); simulateKeyUp(' '); }}
-                  onPointerLeave={(e) => { e.preventDefault(); simulateKeyUp(' '); }}
-                  className="w-20 h-20 bg-red-600/80 rounded-full flex items-center justify-center active:bg-red-500 active:scale-95 transition-all text-white border-2 border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.5)] mb-2 mr-2"
-                >
-                  <Crosshair size={32} />
-                </button>
-              </div>
-            )}
+              {/* Game Over Screen */}
+              {gameState === 'gameover' && (
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center text-white bg-black/90 p-8 md:p-10 rounded-xl border-2 border-red-500 pointer-events-auto shadow-[0_0_30px_rgba(239,68,68,0.4)]">
+                  <h1 className="text-4xl md:text-5xl font-bold text-red-500 mb-8 tracking-widest">游戏结束</h1>
+                  <button 
+                    onClick={handleStart}
+                    className="px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded transition-colors text-lg"
+                  >
+                    重新开始
+                  </button>
+                </div>
+              )}
 
+              {/* Level Up Screen */}
+              {gameState === 'levelup' && (
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center text-white bg-black/80 p-8 md:p-10 rounded-xl border-2 border-yellow-500 pointer-events-auto shadow-[0_0_30px_rgba(234,179,8,0.3)] animate-pulse">
+                  <h1 className="text-4xl md:text-5xl font-bold text-yellow-500 mb-4 tracking-widest">关卡完成!</h1>
+                  <p className="text-slate-300 text-lg">下一关即将开始...</p>
+                </div>
+              )}
           </div>
         </>
       )}
