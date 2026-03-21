@@ -2,156 +2,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Maximize2, Minimize2, RotateCcw, Zap, Cpu, Activity, Trophy, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Play, Shield, Eye, EyeOff, Crosshair, Plane, Gamepad2 } from 'lucide-react';
+import { TankGame } from './TankGame';
 
 // --- Shared Types ---
 interface GameProps {
   isExpanded: boolean;
 }
-
-// --- Game 2: Core Sync (Memory) ---
-const CoreSync: React.FC<GameProps> = ({ isExpanded }) => {
-  const [sequence, setSequence] = useState<number[]>([]);
-  const [playerInput, setPlayerInput] = useState<number[]>([]);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isShowingSequence, setIsShowingSequence] = useState(false);
-  const [activePad, setActivePad] = useState<number | null>(null);
-  const [level, setLevel] = useState(1);
-  const [message, setMessage] = useState('READY?');
-  
-  // Ref to track if component is mounted/active to prevent async state updates on unmount
-  const isActiveRef = useRef(false);
-
-  const pads = [0, 1, 2, 3];
-  const colors = [
-    'bg-red-500 shadow-[0_0_30px_rgba(239,68,68,0.5)] border-red-300', 
-    'bg-blue-500 shadow-[0_0_30px_rgba(59,130,246,0.5)] border-blue-300', 
-    'bg-green-500 shadow-[0_0_30px_rgba(34,197,94,0.5)] border-green-300', 
-    'bg-purple-500 shadow-[0_0_30px_rgba(168,85,247,0.5)] border-purple-300'
-  ];
-
-  const startGame = () => {
-    setSequence([]);
-    setPlayerInput([]);
-    setLevel(1);
-    setIsPlaying(true);
-    setMessage('WATCH');
-    isActiveRef.current = true;
-    addToSequence([]);
-  };
-
-  const addToSequence = (currentSeq: number[]) => {
-    if (!isActiveRef.current) return;
-    const next = Math.floor(Math.random() * 4);
-    const newSeq = [...currentSeq, next];
-    setSequence(newSeq);
-    setPlayerInput([]);
-    playSequence(newSeq);
-  };
-
-  const playSequence = async (seq: number[]) => {
-    if (!isActiveRef.current) return;
-    setIsShowingSequence(true);
-    setMessage('SYNCING...');
-    
-    // Initial delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    for (let i = 0; i < seq.length; i++) {
-      if (!isActiveRef.current) return; // Abort if closed
-      setActivePad(seq[i]);
-      await new Promise(resolve => setTimeout(resolve, 600));
-      setActivePad(null);
-      await new Promise(resolve => setTimeout(resolve, 200));
-    }
-    
-    if (isActiveRef.current) {
-      setIsShowingSequence(false);
-      setMessage('REPEAT');
-    }
-  };
-
-  const handlePadClick = (index: number) => {
-    if (!isPlaying || isShowingSequence) return;
-
-    // Visual feedback
-    setActivePad(index);
-    setTimeout(() => setActivePad(null), 200);
-
-    const newInput = [...playerInput, index];
-    setPlayerInput(newInput);
-
-    // Check correctness
-    if (newInput[newInput.length - 1] !== sequence[newInput.length - 1]) {
-      setIsPlaying(false);
-      setMessage(`FAIL. LVL ${level}`);
-      return;
-    }
-
-    if (newInput.length === sequence.length) {
-      setLevel(l => l + 1);
-      setMessage('CORRECT');
-      setTimeout(() => addToSequence(sequence), 1000);
-    }
-  };
-
-  // Cleanup effect
-  useEffect(() => {
-    isActiveRef.current = isExpanded;
-    if (!isExpanded) {
-      setIsPlaying(false);
-      setIsShowingSequence(false);
-      setActivePad(null);
-    }
-    return () => {
-      isActiveRef.current = false;
-    };
-  }, [isExpanded]);
-
-  return (
-    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900/50 relative">
-      {!isPlaying && !isExpanded && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
-          <Cpu size={48} className="text-blue-400 mb-4 animate-bounce" />
-          <h3 className="text-xl font-bold text-white">核心同步</h3>
-          <p className="text-xs text-slate-400">记忆矩阵</p>
-        </div>
-      )}
-
-      {(!isPlaying && isExpanded) ? (
-        <div className="text-center z-10 animate-fadeUp">
-           <Cpu size={64} className="text-blue-400 mb-6 mx-auto" />
-           <h3 className="text-3xl font-bold text-white mb-2">{message === 'READY?' ? '核心同步' : '同步失败'}</h3>
-           {message !== 'READY?' && <div className="text-blue-400 font-mono mb-6 text-xl">{message}</div>}
-           <button 
-              onClick={startGame}
-              className="px-10 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg transition-all shadow-[0_0_20px_rgba(37,99,235,0.4)]"
-            >
-              {message === 'READY?' ? '初始化系统' : '重启系统'}
-            </button>
-        </div>
-      ) : (
-        isExpanded && (
-          <div className="flex flex-col items-center justify-center w-full h-full">
-            <div className="mb-8 font-mono text-blue-400 text-2xl tracking-[0.5em] font-bold animate-pulse">{message}</div>
-            <div className="grid grid-cols-2 gap-6 md:gap-8">
-              {pads.map(i => (
-                <div
-                  key={i}
-                  onMouseDown={() => handlePadClick(i)}
-                  className={`w-32 h-32 md:w-40 md:h-40 rounded-2xl border-4 transition-all duration-100 cursor-pointer flex items-center justify-center
-                    ${activePad === i 
-                      ? `${colors[i]} scale-95 brightness-110` 
-                      : 'bg-slate-800 border-slate-700 hover:border-slate-500 opacity-80 hover:opacity-100'}`}
-                />
-              ))}
-            </div>
-            <div className="mt-8 text-slate-500 font-mono text-sm tracking-widest">CURRENT LEVEL: <span className="text-white">{level}</span></div>
-          </div>
-        )
-      )}
-    </div>
-  );
-};
 
 // --- Game 3: Snake (Replaced Data Stream) ---
 const SnakeGame: React.FC<GameProps> = ({ isExpanded }) => {
@@ -473,7 +329,7 @@ export const GameModules: React.FC = () => {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-16 w-full max-w-4xl z-20 px-4">
       <GameCardWrapper>
-        {(props) => <CoreSync {...props} />}
+        {(props) => <TankGame {...props} />}
       </GameCardWrapper>
       <GameCardWrapper>
         {(props) => <SnakeGame {...props} />}
