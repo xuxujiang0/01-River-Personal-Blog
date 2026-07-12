@@ -45,11 +45,6 @@ backend/src/main/resources/application-prod.yml
 script/default.conf
 script/DEPLOYMENT.md
 script/MANUAL_COMMANDS.txt
-deploy/Dockerfile
+deploy
 backend/.kilocode/config.json
-deploy/docker-compose.yml
-deploy/mysql/my.cnf
-deploy/nginx/nginx.conf
-deploy/nginx/conf.d/default.conf
-deploy/sql/init-data.sql
-deploy/sql/schema.sql
+
